@@ -13,7 +13,7 @@
 calico_docker_ver = "latest"
 
 # Size of the cluster created by Vagrant
-num_instances=2
+num_instances=1
 
 # Change basename of the VM
 instance_name_prefix="calico"
@@ -47,24 +47,25 @@ Vagrant.configure("2") do |config|
     config.vm.define vm_name do |host|
       host.vm.hostname = vm_name
 
-      ip = "172.17.8.#{i+100}"
+      ip = "172.18.18.#{i+100}"
       host.vm.network :private_network, ip: ip
-
-      # Pre-load the calico/node image.  This slows down the vagrant up
-      # command, but speeds up the actual demonstration.
-      host.vm.provision :docker, images: ["calico/node:#{calico_docker_ver}", "busybox:latest"]
 
       # Use a different cloud-init on the first server.
       if i == 1
-        host.vm.provision :file, :source => "../cloud-config/user-data-first", :destination => "/tmp/vagrantfile-user-data"
+        host.vm.provision :file, :source => "openssl/ca.pem", :destination => "/tmp/ca.pem"
+        host.vm.provision :file, :source => "openssl/apiserver.pem", :destination => "/tmp/apiserver.pem"
+        host.vm.provision :file, :source => "openssl/apiserver-key.pem", :destination => "/tmp/apiserver-key.pem"
+        host.vm.provision :shell, :inline => "mkdir -p /etc/kubernetes/ssl", :privileged => true
+        host.vm.provision :shell, :inline => "mv -t /etc/kubernetes/ssl /tmp/*.pem", :privileged => true
+        host.vm.provision :shell, :inline => "chmod 600 /etc/kubernetes/ssl/apiserver-key.pem", :privileged => true
+        host.vm.provision :shell, :inline => "chown root:root /etc/kubernetes/ssl/apiserver-key.pem", :privileged => true
+
+        host.vm.provision :file, :source => "master-config-template.yaml", :destination => "/tmp/vagrantfile-user-data"
         host.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
       else
-        host.vm.provision :file, :source => "../cloud-config/user-data-others", :destination => "/tmp/vagrantfile-user-data"
+        host.vm.provision :file, :source => "node-config-template.yaml", :destination => "/tmp/vagrantfile-user-data"
         host.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
       end
-
-      config.vm.post_up_message = "Vagrant has finished but cloud-init might still be executing.
-      Check the progress using systemctl status -f"
     end
   end
 end

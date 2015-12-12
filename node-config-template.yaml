@@ -1,14 +1,5 @@
 #cloud-config
 ---
-hostname: <HOSTNAME> 
-users:
-  - name: core
-    ssh-authorized-keys: 
-      - "<SSH_PUBLIC_KEY>"
-    groups: 
-      - sudo
-    shell: /bin/bash
-
 write_files:
   - path: /etc/kubelet-plugins/calico/calico_kubernetes.ini
     owner: root
@@ -16,33 +7,18 @@ write_files:
     content: |
       [config]
       # The Kubernetes master IP
-      KUBERNETES_MASTER=<KUBERNETES_MASTER>
+      KUBERNETES_MASTER=172.18.18.101
       
       # IP and port of etcd instance used by Calico
-      ETCD_AUTHORITY=<KUBERNETES_MASTER>:6666
+      ETCD_AUTHORITY=172.18.18.101:6666
       
       # URL to access the Kubernetes apiserver
-      KUBE_API_ROOT=https://<KUBERNETES_MASTER>:443/api/v1/
+      KUBE_API_ROOT=https://172.18.18.101:443/api/v1/
 
-      # TOKEN used to access the Kubernetes API
-      KUBE_AUTH_TOKEN="<AUTH_TOKEN>"
+      DEFAULT_POLICY=none
 
       # Enable Calcio IPAM
       CALICO_IPAM=true
-
-  - path: /opt/bin/setup-network-environment.sh
-    owner: root
-    permissions: 0755
-    content: |
-      #! /usr/bin/bash
-
-      # Download binary 
-      mkdir -p /opt/bin
-      wget -N -P /opt/bin https://github.com/kelseyhightower/setup-network-environment/releases/download/v1.0.0/setup-network-environment
-      chmod +x /opt/bin/setup-network-environment
-
-      # Run setup-network-environment.
-      /opt/bin/setup-network-environment
 
   - path: /opt/bin/kubernetes-install.sh
     owner: root
@@ -52,9 +28,6 @@ write_files:
       
       if [ ! -f /opt/bin/kubelet ]; then
         echo "Kubenetes not installed - installing."
-
-        # Get the Kubernetes Release.
-        wget https://github.com/kubernetes/kubernetes/releases/download/v1.1.2/kubernetes.tar.gz
 
         # Extract the Kubernetes binaries.
         sudo wget -N -P /opt/bin http://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
@@ -82,22 +55,6 @@ write_files:
         # Fetch the calico/node container
         sudo docker pull calico/node:v0.12.0
       fi
-
-  - path: /etc/kubernetes/ssl/ca.pem
-    owner: core
-    permissions: 0644
-    content: |
-      <CA_CERT>
-  - path: /etc/kubernetes/ssl/worker.pem
-    owner: core
-    permissions: 0644
-    content: |
-      <WORKER_CERT>
-  - path: /etc/kubernetes/ssl/worker-key.pem
-    owner: root
-    permissions: 0600
-    content: |
-      <WORKER_KEY>
 
   - path: /etc/kubernetes/worker-kubeconfig.yaml
     owner: root
@@ -137,7 +94,7 @@ write_files:
           command:
           - /hyperkube
           - proxy
-          - --master=https://<KUBERNETES_MASTER>:443
+          - --master=https://172.18.18.101:443
           - --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml
           - --proxy-mode=iptables
           securityContext:
@@ -166,21 +123,6 @@ coreos:
   update:
     reboot-strategy: off
   units:
-    - name: setup-network-environment.service
-      runtime: true
-      command: start
-      content: |
-        [Unit]
-        Description=Setup Network Environment
-        Documentation=https://github.com/kelseyhightower/setup-network-environment
-        Requires=network-online.target
-        After=network-online.target
-
-        [Service]
-        ExecStart=/opt/bin/setup-network-environment.sh
-        RemainAfterExit=yes
-        Type=oneshot
-
     - name: kubernetes-install.service
       runtime: true
       command: start
@@ -221,9 +163,9 @@ coreos:
         [Service]
         User=root
         EnvironmentFile=/etc/network-environment
-        Environment=ETCD_AUTHORITY=<KUBERNETES_MASTER>:6666
+        Environment=ETCD_AUTHORITY=172.18.18.101:6666
         PermissionsStartOnly=true
-        ExecStart=/opt/bin/calicoctl node --kubernetes --kube-plugin-version=v0.6.1 --detach=false
+        ExecStart=/opt/bin/calicoctl node --kubernetes --kube-plugin-version=v0.7.0 --detach=false
         Restart=always
         RestartSec=10
 
@@ -250,8 +192,7 @@ coreos:
         --cluster-dns=10.100.0.10 \
         --cluster-domain=cluster.local \
         --config=/etc/kubernetes/manifests \
-        --hostname-override=${DEFAULT_IPV4} \
-        --api-servers=https://${KUBERNETES_MASTER}:443 \
+        --api-servers=https://172.18.18.101:443 \
         --network-plugin-dir=/etc/kubelet-plugins \
         --network-plugin=calico \
         --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \

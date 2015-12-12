@@ -1,13 +1,5 @@
 #cloud-config
 ---
-hostname: kubernetes-master
-users:
-  - name: core
-    ssh-authorized-keys: 
-      - "<SSH_PUBLIC_KEY>"
-    groups: 
-      - sudo
-    shell: /bin/bash
 
 write_files:
   - path: /opt/bin/kubernetes-install.sh
