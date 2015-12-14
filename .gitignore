@@ -1,0 +1,4 @@
+.vagrant
+openssl/*.pem
+openssl/*.csr
+openssl/*.srl
