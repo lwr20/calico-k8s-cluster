@@ -1,4 +1,4 @@
-# -*- mode: ruby -*-
+-*- mode: ruby -*-
 # # vi: set ft=ruby :
 
 # To skip Docker pre-load of calico/node and busybox, run vagrant up with:
@@ -52,14 +52,6 @@ Vagrant.configure("2") do |config|
 
       # Use a different cloud-init on the first server.
       if i == 1
-        host.vm.provision :file, :source => "openssl/ca.pem", :destination => "/tmp/ca.pem"
-        host.vm.provision :file, :source => "openssl/apiserver.pem", :destination => "/tmp/apiserver.pem"
-        host.vm.provision :file, :source => "openssl/apiserver-key.pem", :destination => "/tmp/apiserver-key.pem"
-        host.vm.provision :shell, :inline => "mkdir -p /etc/kubernetes/ssl", :privileged => true
-        host.vm.provision :shell, :inline => "mv -t /etc/kubernetes/ssl /tmp/*.pem", :privileged => true
-        host.vm.provision :shell, :inline => "chmod 600 /etc/kubernetes/ssl/apiserver-key.pem", :privileged => true
-        host.vm.provision :shell, :inline => "chown root:root /etc/kubernetes/ssl/apiserver-key.pem", :privileged => true
-
         host.vm.provision :file, :source => "master-config-template.yaml", :destination => "/tmp/vagrantfile-user-data"
         host.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
       else
