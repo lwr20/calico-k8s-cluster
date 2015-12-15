@@ -1,19 +1,5 @@
 #cloud-config
 ---
-
-write_files:
-  - path: /opt/bin/ctls-install.sh
-    owner: root
-    permissions: 0755
-    content: |
-      #! /usr/bin/bash
-      # Install the `calicoctl` binary
-      wget -N -P /opt/bin http://www.projectcalico.org/builds/calicoctl
-
-      # Install the `kubectl` binary
-      wget -N -P /opt/bin http://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubectl
-
-      chmod +x /opt/bin/calicoctl /opt/bin/kubectl
 coreos:
   update:
     reboot-strategy: off
@@ -22,32 +8,20 @@ coreos:
     listen-client-urls: "http://0.0.0.0:2379"
     advertise-client-urls: "http://$private_ipv4:2379"
   units:
-    - name: ctls-install.service
-      runtime: true
-      command: start
-      content: |
-        [Unit]
-        Description=Installs Calico and kubernetes tools
-        After=network-online.target
-        Requires=network-online.target
-
-        [Service]
-        ExecStart=/opt/bin/ctls-install.sh
-        RemainAfterExit=yes
-        Type=oneshot
-
     - name: calico-node.service
       runtime: true
       command: start
       content: |
         [Unit]
         Description=calicoctl node
-        After=docker.service ctls-install.service
-        Requires=docker.service ctls-install.service
+        After=docker.service
+        Requires=docker.service
         
         [Service]
         User=root
         PermissionsStartOnly=true
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin http://www.projectcalico.org/builds/calicoctl
+        ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStart=/opt/bin/calicoctl node --detach=false
         Restart=always
         RestartSec=10
@@ -63,7 +37,7 @@ coreos:
         Requires=etcd2.service
         After=etcd2.service
         [Service]
-        ExecStartPre=/usr/bin/curl -L -o /opt/bin/kube-apiserver -z /opt/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kube-apiserver
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kube-apiserver
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-apiserver
         ExecStart=/opt/bin/kube-apiserver \
         --allow-privileged=true \
@@ -82,7 +56,7 @@ coreos:
         Requires=kube-apiserver.service
         After=kube-apiserver.service
         [Service]
-        ExecStartPre=/usr/bin/curl -L -o /opt/bin/kube-controller-manager -z /opt/bin/kube-controller-manager https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kube-controller-manager
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kube-controller-manager
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-controller-manager
         ExecStart=/opt/bin/kube-controller-manager \
         --master=127.0.0.1:8080 \
@@ -98,7 +72,7 @@ coreos:
         Requires=kube-apiserver.service
         After=kube-apiserver.service
         [Service]
-        ExecStartPre=/usr/bin/curl -L -o /opt/bin/kube-scheduler -z /opt/bin/kube-scheduler https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kube-scheduler
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kube-scheduler
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-scheduler
         ExecStart=/opt/bin/kube-scheduler --master=127.0.0.1:8080
         Restart=always

@@ -20,37 +20,10 @@ write_files:
       # Enable Calcio IPAM
       CALICO_IPAM=true
 
-  - path: /opt/bin/ctls-install.sh
-    owner: root
-    permissions: 0755
-    content: |
-      #! /usr/bin/bash
-      # Install the `calicoctl` binary
-      wget -P -N /opt/bin http://www.projectcalico.org/builds/calicoctl
-
-      # Install the `kubelet` binary
-      wget -N -P /opt/bin http://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
-
-      chmod +x /opt/bin/calicoctl /opt/bin/kubelet
-
 coreos:
   update:
     reboot-strategy: off
   units:
-    - name: ctls-install.service
-      runtime: true
-      command: start
-      content: |
-        [Unit]
-        Description=Installs Calico and kubernetes tools
-        After=network-online.target
-        Requires=network-online.target
-
-        [Service]
-        ExecStart=/opt/bin/ctls-install.sh
-        RemainAfterExit=yes
-        Type=oneshot
-
     - name: calico-node.service
       runtime: true
       command: start
@@ -65,6 +38,8 @@ coreos:
         EnvironmentFile=/etc/network-environment
         Environment=ETCD_AUTHORITY=172.18.18.101:2379
         PermissionsStartOnly=true
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin http://www.projectcalico.org/builds/calicoctl
+        ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStart=/opt/bin/calicoctl node --kubernetes --kube-plugin-version=v0.7.0 --detach=false
         Restart=always
         RestartSec=10
@@ -84,6 +59,8 @@ coreos:
 
         [Service]
         EnvironmentFile=/etc/kubelet-plugins/calico/calico_kubernetes.ini
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
+        ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \
