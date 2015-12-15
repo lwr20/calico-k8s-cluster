@@ -1,17 +1,3 @@
--*- mode: ruby -*-
-# # vi: set ft=ruby :
-
-# To skip Docker pre-load of calico/node and busybox, run vagrant up with:
-#    vagrant up --provision-with file,shell
-
-# The version of the calico docker image to install.  This is used to pre-load
-# the calico/node image which slows down the install process, but speeds up the
-# demonstration.
-#
-# This version should match the version required by calicotl installed in the
-# cloud config files.
-calico_docker_ver = "latest"
-
 # Size of the cluster created by Vagrant
 num_instances=1
 
@@ -26,7 +12,6 @@ Vagrant.configure("2") do |config|
   config.ssh.insert_key = false
 
   config.vm.box = "coreos-%s" % update_channel
-  config.vm.box_version = ">= 308.0.1"
   config.vm.box_url = "http://%s.release.core-os.net/amd64-usr/current/coreos_production_vagrant.json" % update_channel
 
   config.vm.provider :virtualbox do |v|
@@ -34,11 +19,6 @@ Vagrant.configure("2") do |config|
     # in CoreOS, so tell Vagrant that so it can be smarter.
     v.check_guest_additions = false
     v.functional_vboxsf     = false
-  end
-
-  # plugin conflict
-  if Vagrant.has_plugin?("vagrant-vbguest") then
-    config.vbguest.auto_update = false
   end
 
   # Set up each box

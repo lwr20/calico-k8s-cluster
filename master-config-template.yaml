@@ -8,20 +8,19 @@ write_files:
     content: |
       #! /usr/bin/bash
       # Install the `calicoctl` binary
-      wget -P -N /opt/bin http://www.projectcalico.org/builds/calicoctl
+      wget -N -P /opt/bin http://www.projectcalico.org/builds/calicoctl
 
       # Install the `kubectl` binary
-      wget -N -P /opt/bin http://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
+      wget -N -P /opt/bin http://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubectl
 
       chmod +x /opt/bin/calicoctl /opt/bin/kubectl
 coreos:
   update:
     reboot-strategy: off
   etcd2:
-    name: etcd
-    listen-client-urls: http://127.0.0.1:2379
-    advertise-client-urls: http://127.0.0.1:2379
-    listen-peer-urls: http://127.0.0.1:2380
+    name: "etcd"
+    listen-client-urls: "http://0.0.0.0:2379"
+    advertise-client-urls: "http://$private_ipv4:2379"
   units:
     - name: ctls-install.service
       runtime: true
@@ -48,7 +47,6 @@ coreos:
         
         [Service]
         User=root
-        Environment="ETCD_AUTHORITY=127.0.0.1:6666"
         PermissionsStartOnly=true
         ExecStart=/opt/bin/calicoctl node --detach=false
         Restart=always
@@ -65,8 +63,6 @@ coreos:
         Requires=etcd2.service
         After=etcd2.service
         [Service]
-        EnvironmentFile=/etc/network-environment
-        ExecStartPre=-/usr/bin/mkdir -p /opt/bin
         ExecStartPre=/usr/bin/curl -L -o /opt/bin/kube-apiserver -z /opt/bin/kube-apiserver https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kube-apiserver
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-apiserver
         ExecStart=/opt/bin/kube-apiserver \
