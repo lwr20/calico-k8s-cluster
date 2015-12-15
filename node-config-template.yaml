@@ -10,144 +10,44 @@ write_files:
       KUBERNETES_MASTER=172.18.18.101
       
       # IP and port of etcd instance used by Calico
-      ETCD_AUTHORITY=172.18.18.101:6666
+      ETCD_AUTHORITY=172.18.18.101:2379
       
       # URL to access the Kubernetes apiserver
-      KUBE_API_ROOT=https://172.18.18.101:443/api/v1/
+      KUBE_API_ROOT=https://172.18.18.101:8080/api/v1/
 
       DEFAULT_POLICY=none
 
       # Enable Calcio IPAM
       CALICO_IPAM=true
 
-  - path: /opt/bin/kubernetes-install.sh
+  - path: /opt/bin/ctls-install.sh
     owner: root
     permissions: 0755
     content: |
       #! /usr/bin/bash
-      
-      if [ ! -f /opt/bin/kubelet ]; then
-        echo "Kubenetes not installed - installing."
+      # Install the `calicoctl` binary
+      wget -P -N /opt/bin http://www.projectcalico.org/builds/calicoctl
 
-        # Extract the Kubernetes binaries.
-        sudo wget -N -P /opt/bin http://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
-        sudo chmod +x /opt/bin/kubelet
+      # Install the `kubelet` binary
+      wget -N -P /opt/bin http://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
 
-        # Create required folders
-        sudo mkdir -p /etc/kubernetes/manifests/
-        sudo mkdir -p /etc/kubernetes/ssl/
-      fi
-
-  - path: /opt/bin/calico-install.sh
-    owner: root
-    permissions: 0755
-    content: |
-      #! /usr/bin/bash
-      
-      if [ ! -f /opt/bin/calicoctl ]; then
-        echo "Calico not installed - installing."
-       
-        # Install the `calicoctl` binary
-        wget https://github.com/projectcalico/calico-docker/releases/download/v0.12.0/calicoctl
-        chmod +x calicoctl
-        sudo mv calicoctl /opt/bin
-
-        # Fetch the calico/node container
-        sudo docker pull calico/node:v0.12.0
-      fi
-
-  - path: /etc/kubernetes/worker-kubeconfig.yaml
-    owner: root
-    permissions: 0755
-    content: |
-      apiVersion: v1
-      kind: Config
-      clusters:
-      - name: local
-        cluster:
-          certificate-authority: /etc/kubernetes/ssl/ca.pem
-      users:
-      - name: kubelet
-        user:
-          client-certificate: /etc/kubernetes/ssl/worker.pem
-          client-key: /etc/kubernetes/ssl/worker-key.pem
-      contexts:
-      - context:
-          cluster: local
-          user: kubelet
-        name: kubelet-context
-      current-context: kubelet-context
-
-  - path: /etc/kubernetes/manifests/kube-proxy.manifest
-    owner: root
-    permissions: 0755
-    content: |
-      apiVersion: v1
-      kind: Pod
-      metadata:
-        name: kube-proxy
-      spec:
-        hostNetwork: true
-        containers:
-        - name: kube-proxy
-          image: gcr.io/google_containers/hyperkube:v1.1.2
-          command:
-          - /hyperkube
-          - proxy
-          - --master=https://172.18.18.101:443
-          - --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml
-          - --proxy-mode=iptables
-          securityContext:
-            privileged: true
-          volumeMounts:
-            - mountPath: /etc/ssl/certs
-              name: "ssl-certs"
-            - mountPath: /etc/kubernetes/worker-kubeconfig.yaml
-              name: "kubeconfig"
-              readOnly: true
-            - mountPath: /etc/kubernetes/ssl
-              name: "etc-kube-ssl"
-              readOnly: true
-        volumes:
-          - name: "ssl-certs"
-            hostPath:
-              path: "/usr/share/ca-certificates"
-          - name: "kubeconfig"
-            hostPath:
-              path: "/etc/kubernetes/worker-kubeconfig.yaml"
-          - name: "etc-kube-ssl"
-            hostPath:
-              path: "/etc/kubernetes/ssl"
+      chmod +x /opt/bin/calicoctl /opt/bin/kubelet
 
 coreos:
   update:
     reboot-strategy: off
   units:
-    - name: kubernetes-install.service
+    - name: ctls-install.service
       runtime: true
       command: start
       content: |
         [Unit]
-        Description=Installs Kubernetes tools
+        Description=Installs Calico and kubernetes tools
         After=network-online.target
         Requires=network-online.target
 
         [Service]
-        ExecStart=/opt/bin/kubernetes-install.sh
-        RemainAfterExit=yes
-        Type=oneshot
-
-    - name: calico-install.service
-      runtime: true
-      command: start
-      content: |
-        [Unit]
-        Description=Installs Calico tools
-        After=kubernetes-install.service
-        Requires=docker.service
-
-        [Service]
-        ExecStart=/opt/bin/calico-install.sh
+        ExecStart=/opt/bin/ctls-install.sh
         RemainAfterExit=yes
         Type=oneshot
 
@@ -157,13 +57,13 @@ coreos:
       content: |
         [Unit]
         Description=calicoctl node
-        After=calico-install.service
-        Requires=docker.service
+        After=docker.service ctls-install.service
+        Requires=docker.service ctls-install.service
         
         [Service]
         User=root
         EnvironmentFile=/etc/network-environment
-        Environment=ETCD_AUTHORITY=172.18.18.101:6666
+        Environment=ETCD_AUTHORITY=172.18.18.101:2379
         PermissionsStartOnly=true
         ExecStart=/opt/bin/calicoctl node --kubernetes --kube-plugin-version=v0.7.0 --detach=false
         Restart=always
@@ -183,7 +83,6 @@ coreos:
         Requires=calico-node.service
 
         [Service]
-        EnvironmentFile=/etc/network-environment
         EnvironmentFile=/etc/kubelet-plugins/calico/calico_kubernetes.ini
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
@@ -191,13 +90,10 @@ coreos:
         --allow-privileged=true \
         --cluster-dns=10.100.0.10 \
         --cluster-domain=cluster.local \
-        --config=/etc/kubernetes/manifests \
-        --api-servers=https://172.18.18.101:443 \
+        --api-servers=https://172.18.18.101:8080 \
         --network-plugin-dir=/etc/kubelet-plugins \
         --network-plugin=calico \
         --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
-        --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem \
-        --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
         --logtostderr=true
         Restart=always
         RestartSec=10
