@@ -1,5 +1,5 @@
 # Size of the cluster created by Vagrant
-num_instances=1
+num_instances=2
 
 # Change basename of the VM
 instance_name_prefix="calico"
@@ -34,6 +34,8 @@ Vagrant.configure("2") do |config|
       if i == 1
         host.vm.provision :file, :source => "master-config-template.yaml", :destination => "/tmp/vagrantfile-user-data"
         host.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
+	host.vm.network "forwarded_port", guest: 8080, host: 8080
+	host.vm.network "forwarded_port", guest: 2379, host: 2379
       else
         host.vm.provision :file, :source => "node-config-template.yaml", :destination => "/tmp/vagrantfile-user-data"
         host.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true

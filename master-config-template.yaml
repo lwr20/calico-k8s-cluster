@@ -8,26 +8,6 @@ coreos:
     listen-client-urls: "http://0.0.0.0:2379"
     advertise-client-urls: "http://$private_ipv4:2379"
   units:
-    - name: calico-node.service
-      runtime: true
-      command: start
-      content: |
-        [Unit]
-        Description=calicoctl node
-        After=docker.service
-        Requires=docker.service
-        
-        [Service]
-        User=root
-        PermissionsStartOnly=true
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin http://www.projectcalico.org/builds/calicoctl
-        ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
-        ExecStart=/opt/bin/calicoctl node --detach=false
-        Restart=always
-        RestartSec=10
-    
-        [Install]
-        WantedBy=multi-user.target
     - name: kube-apiserver.service
       command: start
       content: |

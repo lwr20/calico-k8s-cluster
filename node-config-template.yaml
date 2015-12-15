@@ -13,7 +13,7 @@ write_files:
       ETCD_AUTHORITY=172.18.18.101:2379
       
       # URL to access the Kubernetes apiserver
-      KUBE_API_ROOT=https://172.18.18.101:8080/api/v1/
+      KUBE_API_ROOT=http://172.18.18.101:8080/api/v1/
 
       DEFAULT_POLICY=none
 
@@ -30,12 +30,11 @@ coreos:
       content: |
         [Unit]
         Description=calicoctl node
-        After=docker.service ctls-install.service
-        Requires=docker.service ctls-install.service
+        After=docker.service
+        Requires=docker.service
         
         [Service]
         User=root
-        EnvironmentFile=/etc/network-environment
         Environment=ETCD_AUTHORITY=172.18.18.101:2379
         PermissionsStartOnly=true
         ExecStartPre=/usr/bin/wget -N -P /opt/bin http://www.projectcalico.org/builds/calicoctl
@@ -67,10 +66,10 @@ coreos:
         --allow-privileged=true \
         --cluster-dns=10.100.0.10 \
         --cluster-domain=cluster.local \
-        --api-servers=https://172.18.18.101:8080 \
+        --api-servers=http://172.18.18.101:8080 \
         --network-plugin-dir=/etc/kubelet-plugins \
         --network-plugin=calico \
-        --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
+        --hostname-override=$private_ipv4
         --logtostderr=true
         Restart=always
         RestartSec=10
