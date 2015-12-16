@@ -37,6 +37,7 @@ Vagrant.configure("2") do |config|
 	host.vm.network "forwarded_port", guest: 8080, host: 8080
 	host.vm.network "forwarded_port", guest: 2379, host: 2379
       else
+	host.vm.provision :docker, images: ["busybox:latest"]
         host.vm.provision :file, :source => "node-config-template.yaml", :destination => "/tmp/vagrantfile-user-data"
         host.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
       end
