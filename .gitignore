@@ -2,3 +2,4 @@
 openssl/*.pem
 openssl/*.csr
 openssl/*.srl
+vagrant-ssh
