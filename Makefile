@@ -19,11 +19,11 @@ deploy-heapster: remove-heapster
 	kubectl create -f heapster
 
 remove-heapster:
-	-kubectl delete service monitoring-grafana --grace-period=1
-	-kubectl delete service monitoring-influxdb --grace-period=1
-	-kubectl delete service heapster --grace-period=1
-	-kubectl delete rc heapster --grace-period=1
-	-kubectl delete rc influxdb-grafana --grace-period=1
+	-kubectl delete service monitoring-grafana --grace-period=1 --namespace=kube-system
+	-kubectl delete service monitoring-influxdb --grace-period=1 --namespace=kube-system
+	-kubectl delete service heapster --grace-period=1 --namespace=kube-system
+	-kubectl delete rc heapster --grace-period=1 --namespace=kube-system
+	-kubectl delete rc influxdb-grafana --grace-period=1 --namespace=kube-system
 
 vagrant-ssh:
 	vagrant ssh-config > vagrant-ssh

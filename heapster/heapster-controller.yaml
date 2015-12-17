@@ -6,6 +6,7 @@ metadata:
     name: heapster
     version: v6
   name: heapster
+  namespace: kube-system
 spec:
   replicas: 1
   selector:
@@ -19,9 +20,9 @@ spec:
     spec:
       containers:
       - name: heapster
-        image: kubernetes/heapster:v0.19.0
+        image: kubernetes/heapster:canary
         imagePullPolicy: Always
         command:
         - /heapster
-        - --source=kubernetes:https://kubernetes.default
+        - --source=kubernetes:http://172.18.18.101:8080?inClusterConfig=false&auth=
         - --sink=influxdb:http://monitoring-influxdb:8086

@@ -3,6 +3,7 @@ kind: Service
 metadata:
   labels: null
   name: monitoring-influxdb
+  namespace: kube-system
 spec:
   ports:
   - name: http
