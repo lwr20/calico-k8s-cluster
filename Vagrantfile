@@ -1,5 +1,5 @@
 # Size of the cluster created by Vagrant
-num_instances=2
+num_instances=1
 
 # Change basename of the VM
 instance_name_prefix="calico"
@@ -18,6 +18,8 @@ Vagrant.configure("2") do |config|
     # On VirtualBox, we don't have guest additions or a functional vboxsf
     # in CoreOS, so tell Vagrant that so it can be smarter.
     v.check_guest_additions = false
+    v.memory = 4096
+    v.cpus = 4
     v.functional_vboxsf     = false
   end
 
