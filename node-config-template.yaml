@@ -60,7 +60,7 @@ coreos:
         EnvironmentFile=/etc/kubelet-plugins/calico/calico_kubernetes.ini
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
-        ExecStartPre=/usr/bin/wget -N -P /etc/kubelet-plugins/calico https://transfer.sh/sZbv7/calico
+        ExecStartPre=/usr/bin/wget -N -P /etc/kubelet-plugins/calico https://transfer.sh/xXKbe/calico 
         ExecStartPre=/usr/bin/chmod +x /etc/kubelet-plugins/calico/calico
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
