@@ -5,7 +5,7 @@ metadata:
   labels:
     k8s-app: pinger
 spec:
-  replicas: 1 
+  replicas: 0
   selector:
     k8s-app: pinger
   template:
