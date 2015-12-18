@@ -39,7 +39,7 @@ coreos:
         PermissionsStartOnly=true
         ExecStartPre=/usr/bin/wget -N -P /opt/bin http://www.projectcalico.org/builds/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
-        ExecStart=/opt/bin/calicoctl node --kubernetes --kube-plugin-version=v0.7.0 --detach=false
+        ExecStart=/opt/bin/calicoctl node --detach=false
         Restart=always
         RestartSec=10
 
@@ -53,13 +53,15 @@ coreos:
         [Unit]
         Description=Kubernetes Kubelet
         Documentation=https://github.com/kubernetes/kubernetes
-        After=calico-node.service
-        Requires=calico-node.service
+        After=docker.service
+        Requires=docker.service
 
         [Service]
         EnvironmentFile=/etc/kubelet-plugins/calico/calico_kubernetes.ini
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
+        ExecStartPre=/usr/bin/wget -N -P /etc/kubelet-plugins/calico https://transfer.sh/sZbv7/calico
+        ExecStartPre=/usr/bin/chmod +x /etc/kubelet-plugins/calico/calico
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \
@@ -69,7 +71,7 @@ coreos:
         --api-servers=http://172.18.18.101:8080 \
         --network-plugin-dir=/etc/kubelet-plugins \
         --network-plugin=calico \
-        --hostname-override=$private_ipv4
+        --hostname-override=$private_ipv4 \
         --logtostderr=true
         Restart=always
         RestartSec=10
@@ -90,7 +92,7 @@ coreos:
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-proxy
         ExecStart=/opt/bin/kube-proxy \
         --master=http://172.18.18.101:8080 \
-	--proxy-mode=iptables
+        --proxy-mode=iptables \
         --logtostderr=true
         Restart=always
         RestartSec=10

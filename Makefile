@@ -35,6 +35,18 @@ heapster-images: vagrant-ssh
 	docker save kubernetes/heapster_grafana:v2.5.0 | ssh -F vagrant-ssh calico-01 docker load
 	docker save kubernetes/heapster_influxdb:v0.6 | ssh -F vagrant-ssh calico-01 docker load
 	docker save kubernetes/heapster:canary | ssh -F vagrant-ssh calico-01 docker load
-	
+
+apply-node-labels:
+	kubectl label nodes -l 'kubernetes.io/hostname!=172.18.18.101' role=node	
+
+deploy-pinger: remove-pinger
+	kubectl create -f pinger
+
+remove-pinger:
+	kubectl delete rc pinger --grace-period=1
+
+scale-pinger:
+	kubectl scale --replicas=20 rc/pinger
+
 launch-firefox:
 	firefox 'http://172.18.18.101:8080/api/v1/proxy/namespaces/default/services/monitoring-grafana/'
