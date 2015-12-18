@@ -43,7 +43,7 @@ deploy-pinger: remove-pinger
 	kubectl create -f pinger
 
 remove-pinger:
-	kubectl delete rc pinger --grace-period=1
+	-kubectl delete rc pinger --grace-period=1
 
 scale-pinger:
 	kubectl scale --replicas=20 rc/pinger
