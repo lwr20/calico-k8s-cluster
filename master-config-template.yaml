@@ -23,10 +23,21 @@ coreos:
   update:
     reboot-strategy: off
   etcd2:
-    name: "etcd"
-    listen-client-urls: "http://0.0.0.0:2379"
-    advertise-client-urls: "http://$private_ipv4:2379"
+    name: "etcdserver"
+    listen-client-urls: http://0.0.0.0:2379
+    advertise-client-urls: http://$private_ipv4:2379
+    initial-cluster: etcdserver=http://$private_ipv4:2380
+    initial-advertise-peer-urls: http://$private_ipv4:2380
+    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
+    listen-peer-urls: http://0.0.0.0:2380
+  fleet:
+    metadata: "role=master"
+    etcd_servers: "http://localhost:2379"
   units:
+    - name: etcd2.service
+      command: start
+    - name: fleet.service
+      command: start
     - name: kube-apiserver.service
       command: start
       content: |
