@@ -1,3 +1,6 @@
+all: apply-node-labels deploy-pinger
+	
+
 destroy-cluster-vagrant:
 	-vagrant destroy -f
 
@@ -50,3 +53,20 @@ scale-pinger:
 
 launch-firefox:
 	firefox 'http://172.18.18.101:8080/api/v1/proxy/namespaces/default/services/monitoring-grafana/'
+
+
+CLUSTER_SIZE := 25
+NODE_NUMBERS := $(shell seq -f '%02.0f' 2 ${CLUSTER_SIZE})
+LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
+
+pull-plugin-timings: ${LOG_RETRIEVAL_TARGETS}
+	# See http://stackoverflow.com/a/12110773/61318
+	#make -j12 CLUSTER_SIZE=2 pull-plugin-timings
+	echo "DONE"
+	cat timings/*.log > timings/all.timings
+
+${LOG_RETRIEVAL_TARGETS}: job%:
+	mkdir -p timings
+	ssh -F vagrant-ssh calico-$* grep TIMING  /var/log/calico/kubernetes/calico.log | grep -v status > timings/calico-$*.log
+
+.PHONEY: ${LOG_RETRIEVAL_TARGETS}
