@@ -9,7 +9,7 @@ write_files:
       {
           "name": "calico-k8s-network",
           "type": "calico",
-          "etcd_authority": "172.18.18.101:2379",
+          "etcd_authority": "localhost:2379",
           "log_level": "info",
           "ipam": {
               "type": "calico-ipam"
@@ -20,7 +20,7 @@ coreos:
   etcd2:
     proxy: on 
     listen-client-urls: http://localhost:2379
-    initial-cluster: etcdserver=http://172.18.18.101:2380
+    initial-cluster: etcdserver=http://kube-scale-master:2380
   fleet:
     metadata: "role=node"
     etcd_servers: "http://localhost:2379"
@@ -42,7 +42,7 @@ coreos:
         
         [Service]
         User=root
-        Environment=ETCD_AUTHORITY=172.18.18.101:2379
+        Environment=ETCD_AUTHORITY=localhost:2379
         PermissionsStartOnly=true
         ExecStartPre=/usr/bin/wget -N -P /opt/bin http://www.projectcalico.org/builds/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
@@ -67,16 +67,18 @@ coreos:
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
         ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://transfer.sh/DVfEz/calico-ipam
-        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://transfer.sh/wckCo/calico
+        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://transfer.sh/20eBZ/calico
         ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico
         ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico-ipam
+        ExecStartPre=/usr/bin/docker pull busybox:latest
+        ExecStartPre=/usr/bin/docker pull gcr.io/google_containers/pause:0.8.0
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \
         --allow-privileged=true \
         --cluster-dns=10.100.0.10 \
         --cluster-domain=cluster.local \
-        --api-servers=http://172.18.18.101:8080 \
+        --api-servers=http://kube-scale-master:8080 \
         --network-plugin-dir=/etc/cni/net.d \
         --network-plugin=cni \
         --hostname-override=$private_ipv4 \
@@ -99,7 +101,7 @@ coreos:
         ExecStartPre=/usr/bin/wget -N -P /opt/bin  https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kube-proxy
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-proxy
         ExecStart=/opt/bin/kube-proxy \
-        --master=http://172.18.18.101:8080 \
+        --master=http://kube-scale-master:8080 \
         --proxy-mode=iptables \
         --logtostderr=true
         Restart=always

@@ -1,5 +1,4 @@
 all: apply-node-labels deploy-pinger
-	
 
 destroy-cluster-vagrant:
 	-vagrant destroy -f
@@ -39,34 +38,66 @@ heapster-images: vagrant-ssh
 	docker save kubernetes/heapster_influxdb:v0.6 | ssh -F vagrant-ssh calico-01 docker load
 	docker save kubernetes/heapster:canary | ssh -F vagrant-ssh calico-01 docker load
 
+# Node selectors in the pod specs don't allow negation, so apply a label that can be used as-is here.
 apply-node-labels:
-	kubectl label nodes -l 'kubernetes.io/hostname!=172.18.18.101' role=node	
+	kubectl get no
+	kubectl label nodes -l 'kubernetes.io/hostname!=127.0.0.1' role=node
+	kubectl get no
 
 deploy-pinger: remove-pinger
 	kubectl create -f pinger
+	kubectl get rc
+	kubectl get po
 
 remove-pinger:
 	-kubectl delete rc pinger --grace-period=1
 
 scale-pinger:
-	kubectl scale --replicas=20 rc/pinger
+	kubectl scale --replicas=10000 rc/pinger
+	kubectl get rc
+	kubectl get po
 
 launch-firefox:
 	firefox 'http://172.18.18.101:8080/api/v1/proxy/namespaces/default/services/monitoring-grafana/'
 
-
-CLUSTER_SIZE := 25
+CLUSTER_SIZE := 101
 NODE_NUMBERS := $(shell seq -f '%02.0f' 2 ${CLUSTER_SIZE})
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
+NODE_NAMES := $(addprefix kube-scale-,${NODE_NUMBERS})
 
+# See http://stackoverflow.com/a/12110773/61318
+#make -j12 CLUSTER_SIZE=26 pull-plugin-timings
 pull-plugin-timings: ${LOG_RETRIEVAL_TARGETS}
-	# See http://stackoverflow.com/a/12110773/61318
-	#make -j12 CLUSTER_SIZE=2 pull-plugin-timings
-	echo "DONE"
 	cat timings/*.log > timings/all.timings
 
 ${LOG_RETRIEVAL_TARGETS}: job%:
-	mkdir -p timings
-	ssh -F vagrant-ssh calico-$* grep TIMING  /var/log/calico/kubernetes/calico.log | grep -v status > timings/calico-$*.log
+	@mkdir -p timings
+	@ssh -o LogLevel=quiet kube-scale-$*.us-central1-a.unique-caldron-775 grep TIMING  /var/log/calico/cni/cni.log > timings/calico-$*.log
 
 .PHONEY: ${LOG_RETRIEVAL_TARGETS}
+
+gce-create:
+	-gcloud compute instances create \
+  	kube-scale-master \
+  	--image-project coreos-cloud \
+  	--image coreos-alpha-899-1-0-v20151218 \
+  	--machine-type n1-standard-4 \
+  	--metadata-from-file user-data=master-config-template.yaml
+
+	gcloud compute instances create \
+  	${NODE_NAMES} \
+  	--image-project coreos-cloud \
+  	--image coreos-alpha-899-1-0-v20151218 \
+  	--machine-type n1-standard-1 \
+  	--metadata-from-file user-data=node-config-template.yaml
+
+gce-cleanup:
+	gcloud compute instances list -r 'kube-scale.*' |tail -n +2 |cut -f1 -d' ' |xargs gcloud compute instances delete
+
+gce-forward-ports-kubectl:
+	gcloud compute ssh kube-scale-master --ssh-flag="-nNT" --ssh-flag="-L 8080:localhost:8080" --ssh-flag="-L 2379:localhost:2379" &
+
+gce-redeploy:
+	gcloud compute instances add-metadata kube-scale-master --metadata-from-file=user-data=master-config-template.yaml
+	gcloud compute instances add-metadata ${NODE_NAMES} --metadata-from-file=user-data=node-config-template.yaml
+#	gcloud compute ssh kube-scale-master sudo reboot
