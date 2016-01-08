@@ -3,3 +3,7 @@ openssl/*.pem
 openssl/*.csr
 openssl/*.srl
 vagrant-ssh
+kubectl
+calicoctl
+timings
+.idea
