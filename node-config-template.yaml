@@ -66,8 +66,8 @@ coreos:
         [Service]
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
-        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://transfer.sh/DVfEz/calico-ipam
-        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://transfer.sh/20eBZ/calico
+        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://f001.backblaze.com/file/calico/calico-ipam
+        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://f001.backblaze.com/file/calico/calico
         ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico
         ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico-ipam
         ExecStartPre=/usr/bin/docker pull busybox:latest

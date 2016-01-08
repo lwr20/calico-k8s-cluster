@@ -26,12 +26,51 @@ coreos:
     initial-advertise-peer-urls: http://$private_ipv4:2380
     listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
     listen-peer-urls: http://0.0.0.0:2380
+    data-dir: /mnt/ssd/etcd2
   fleet:
     metadata: "role=master"
     etcd_servers: "http://$private_ipv4:2379"
   units:
-    - name: etcd2.service
+    - name: "etcd2.service"
+      command: "start"
+      drop-ins:
+        - name: 10-procs.conf
+          content: |
+            [Service]
+            Environment=GOMAXPROCS=16
+    - name: format-ephemeral.service
       command: start
+      content: |
+        [Unit]
+        Description=Formats the ephemeral drive
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/sbin/wipefs -f /dev/sdb
+        ExecStart=/usr/sbin/mkfs.btrfs -f /dev/sdb
+    - name: mnt-ssd.mount
+      command: start
+      content: |
+        [Unit]
+        Description=Mount ephemeral to /mnt/ssd
+        Requires=format-ephemeral.service
+        After=format-ephemeral.service
+        Before=fix-permission.service
+        [Mount]
+        What=/dev/sdb
+        Where=/mnt/ssd
+        DirectoryMode=0777
+        Type=btrfs
+    - name: fix-permission.service
+      command: start
+      content: |
+        [Unit]
+        Description=Formats the ephemeral drive
+        Before=etcd2.service
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/bin/chmod 777 /mnt/ssd
     - name: fleet.service
       command: start
     - name: kube-apiserver.service
@@ -119,8 +158,8 @@ coreos:
         [Service]
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
-        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://transfer.sh/20eBZ/calico
-        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://transfer.sh/DVfEz/calico-ipam
+        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://f001.backblaze.com/file/calico/calico-ipam
+        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://f001.backblaze.com/file/calico/calico
         ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico
         ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico-ipam
         ExecStart=/opt/bin/kubelet \
