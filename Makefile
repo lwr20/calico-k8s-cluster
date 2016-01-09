@@ -114,3 +114,6 @@ gce-config-ssh:
 
 gce-ssh-master:
 	ssh core@kube-scale-master.us-central1-a.unique-caldron-775
+
+gce-bgp-status:
+	ssh core@kube-scale-master.us-central1-a.unique-caldron-775 /opt/bin/calicoctl status
