@@ -135,7 +135,7 @@ coreos:
         User=root
         Environment=ETCD_AUTHORITY=$private_ipv4:2379
         PermissionsStartOnly=true
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin http://www.projectcalico.org/builds/calicoctl
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.13.0/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/opt/bin/calicoctl pool add 192.168.0.0/16 --ipip --nat-outgoing
         ExecStart=/opt/bin/calicoctl node --detach=false
@@ -197,3 +197,23 @@ coreos:
         Restart=always
         RestartSec=10
 
+    - name: nginx.service
+      command: start
+      content: |
+        [Unit]
+        Description=Nginx
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        TimeoutStartSec=0
+        ExecStartPre=/usr/bin/wget -nc -P /tmp https://github.com/projectcalico/calico-containers/releases/download/v0.13.0/calicoctl
+        ExecStartPre=/usr/bin/wget -nc -P /tmp https://f001.backblaze.com/file/calico/calico
+        ExecStartPre=/usr/bin/wget -nc -P /tmp https://f001.backblaze.com/file/calico/calico-ipam
+        ExecStartPre=-/usr/bin/docker kill mynginx
+        ExecStartPre=-/usr/bin/docker rm mynginx
+        ExecStartPre=/usr/bin/docker pull nginx
+        ExecStart=/usr/bin/docker run --name mynginx -p 80:80 -v /tmp:/usr/share/nginx/html:ro -d nginx
+
+        [Install]
+        WantedBy=multi-user.target
