@@ -217,3 +217,24 @@ coreos:
 
         [Install]
         WantedBy=multi-user.target
+
+    - name: registry.service
+      command: start
+      content: |
+        [Unit]
+        Description=registry
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        TimeoutStartSec=0
+        ExecStartPre=-/usr/bin/docker kill registry
+        ExecStartPre=-/usr/bin/docker rm registry
+        ExecStartPre=/usr/bin/docker pull registry:2
+        ExecStartPre=/usr/bin/docker pull calico/node:v0.13.0
+        ExecStartPre=-/usr/bin/docker tag calico/node:v0.13.0 kube-scale-master:5000/calico-node
+        ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
+        ExecStartPost=/usr/bin/docker push kube-scale-master:5000/calico-node
+
+        [Install]
+        WantedBy=multi-user.target
