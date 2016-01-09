@@ -31,6 +31,12 @@ coreos:
     metadata: "role=master"
     etcd_servers: "http://$private_ipv4:2379"
   units:
+    - name: "docker.service"
+      drop-ins:
+        - name: "50-insecure-registry.conf"
+          content: |
+            [Service]
+            Environment=DOCKER_OPTS='--insecure-registry="kube-scale-master:5000"'
     - name: "etcd2.service"
       command: "start"
       drop-ins:
@@ -230,10 +236,11 @@ coreos:
         TimeoutStartSec=0
         ExecStartPre=-/usr/bin/docker kill registry
         ExecStartPre=-/usr/bin/docker rm registry
-        ExecStartPre=/usr/bin/docker pull registry:2
-        ExecStartPre=/usr/bin/docker pull calico/node:v0.13.0
+        ExecStartPre=-/usr/bin/docker pull registry:2
+        ExecStartPre=-/usr/bin/docker pull calico/node:v0.13.0
         ExecStartPre=-/usr/bin/docker tag calico/node:v0.13.0 kube-scale-master:5000/calico-node
         ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
+        ExecStartPost=/bin/sleep 5
         ExecStartPost=/usr/bin/docker push kube-scale-master:5000/calico-node
 
         [Install]

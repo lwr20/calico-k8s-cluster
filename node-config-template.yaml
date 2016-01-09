@@ -27,6 +27,12 @@ coreos:
   update:
     reboot-strategy: off
   units:
+    - name: "docker.service"
+      drop-ins:
+        - name: "50-insecure-registry.conf"
+          content: |
+            [Service]
+            Environment=DOCKER_OPTS='--insecure-registry="kube-scale-master:5000"'
     - name: etcd2.service
       command: start
     - name: fleet.service
