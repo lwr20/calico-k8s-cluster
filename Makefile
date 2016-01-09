@@ -89,9 +89,10 @@ gce-create: kubectl calicoctl
   	${NODE_NAMES} \
   	--image-project coreos-cloud \
   	--image coreos-alpha-899-1-0-v20151218 \
-  	--machine-type n1-highcpu-4 \
+  	--machine-type n1-highcpu-2 \
   	--metadata-from-file user-data=node-config-template.yaml \
   	--no-address \
+  	--preemptible \
   	--tags no-ip
 
 	make gce-config-ssh
