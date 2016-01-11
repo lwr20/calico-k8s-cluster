@@ -52,6 +52,7 @@ coreos:
         PermissionsStartOnly=true
         ExecStartPre=/usr/bin/wget -N -P /opt/bin http://kube-scale-master/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
+        ExecStartPre=/usr/bin/docker pull kube-scale-master:5000/calico-node
         ExecStart=/opt/bin/calicoctl node --node-image=kube-scale-master:5000/calico-node --detach=false
         Restart=always
         RestartSec=10
