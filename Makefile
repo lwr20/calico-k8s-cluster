@@ -1,13 +1,9 @@
-all: apply-node-labels deploy-pinger
+all: TODO
 
-destroy-cluster-vagrant:
-	-vagrant destroy -f
-
-create-cluster-vagrant: destroy-cluster-vagrant
-	vagrant up
-
-generate-certs:
-	sudo openssl/create_keys.sh
+CLUSTER_SIZE := 100
+NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
+LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
+NODE_NAMES := $(addprefix kube-scale-,${NODE_NUMBERS})
 
 kubectl:
 	wget http://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubectl
@@ -27,22 +23,13 @@ remove-heapster:
 	-kubectl delete rc heapster --grace-period=1 --namespace=kube-system
 	-kubectl delete rc influxdb-grafana --grace-period=1 --namespace=kube-system
 
-vagrant-ssh:
-	vagrant ssh-config > vagrant-ssh
-
-heapster-images: vagrant-ssh
-	docker pull kubernetes/heapster_grafana:v2.5.0
-	docker pull kubernetes/heapster_influxdb:v0.6
-	docker pull kubernetes/heapster:v0.19.0
-	docker save kubernetes/heapster_grafana:v2.5.0 | ssh -F vagrant-ssh calico-01 docker load
-	docker save kubernetes/heapster_influxdb:v0.6 | ssh -F vagrant-ssh calico-01 docker load
-	docker save kubernetes/heapster:canary | ssh -F vagrant-ssh calico-01 docker load
-
 # Node selectors in the pod specs don't allow negation, so apply a label that can be used as-is here.
+# TODO - add a rety in here as the kubectl label nodes doesn't do them all.
 apply-node-labels:
+	bash -c 'while [ $$(kubectl get no |grep role=node -c) -ne ${CLUSTER_SIZE} ] ;  do kubectl label nodes -l kubernetes.io/hostname!=127.0.0.1 role=node; done'
 	kubectl get no
-	kubectl label nodes -l 'kubernetes.io/hostname!=127.0.0.1' role=node
-	kubectl get no
+	@echo "Number of labeled nodes: "
+	@make --no-print-directory gce-list-nodes-count
 
 deploy-pinger: remove-pinger
 	kubectl create -f pinger
@@ -54,16 +41,6 @@ remove-pinger:
 
 scale-pinger:
 	kubectl scale --replicas=10000 rc/pinger
-	kubectl get rc
-	kubectl get po
-
-launch-firefox:
-	firefox 'http://172.18.18.101:8080/api/v1/proxy/namespaces/default/services/monitoring-grafana/'
-
-CLUSTER_SIZE := 100
-NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
-LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
-NODE_NAMES := $(addprefix kube-scale-,${NODE_NUMBERS})
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 CLUSTER_SIZE=26 pull-plugin-timings
@@ -102,7 +79,8 @@ gce-cleanup:
 
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
-	gcloud compute ssh kube-scale-master --ssh-flag="-nNT" --ssh-flag="-L 8080:localhost:8080" --ssh-flag="-L 2379:localhost:2379" --ssh-flag="-o LogLevel=quiet" &
+	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no core@kube-scale-master.us-central1-a.unique-caldron-775 date; do echo "Try again"; done'
+	ssh -o PasswordAuthentication=no -L 8080:localhost:8080 -L 2379:localhost:2379 -L 4194:localhost:4194 -o LogLevel=quiet -nNT core@kube-scale-master.us-central1-a.unique-caldron-775 &
 
 gce-redeploy:
 	gcloud compute instances add-metadata kube-scale-master --metadata-from-file=user-data=master-config-template.yaml
@@ -117,3 +95,15 @@ gce-ssh-master:
 
 gce-bgp-status:
 	ssh core@kube-scale-master.us-central1-a.unique-caldron-775 /opt/bin/calicoctl status
+
+gce-bgp-status-count:
+	ssh core@kube-scale-master.us-central1-a.unique-caldron-775 /opt/bin/calicoctl status |grep -c Established
+
+gce-list-nodes:
+	kubectl get no --no-headers -l 'kubernetes.io/hostname!=127.0.0.1'
+
+gce-list-nodes-count:
+	@kubectl get no --no-headers -l 'kubernetes.io/hostname!=127.0.0.1' | wc -l
+
+gce-successful-pods:
+	kubectl get po | grep -P -c '1/1\s+Running\s+0'
