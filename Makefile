@@ -1,12 +1,13 @@
 all: TODO
 
-CLUSTER_SIZE := 100
+CLUSTER_SIZE := 200
+PODS := 10000
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
 NODE_NAMES := $(addprefix kube-scale-,${NODE_NUMBERS})
 
 kubectl:
-	wget http://storage.googleapis.com/kubernetes-release/release/v1.1.2/bin/linux/amd64/kubectl
+	wget http://storage.googleapis.com/kubernetes-release/release/v1.1.3/bin/linux/amd64/kubectl
 	chmod +x kubectl
 
 calicoctl:
@@ -72,7 +73,9 @@ gce-create: kubectl calicoctl
   	--preemptible \
   	--tags no-ip
 
-	make gce-config-ssh
+	make --no-print-directory gce-config-ssh
+	make --no-print-directory gce-forward-ports
+	make --no-print-directory apply-node-labels
 
 gce-cleanup:
 	gcloud compute instances list -r 'kube-scale.*' |tail -n +2 |cut -f1 -d' ' |xargs gcloud compute instances delete
@@ -107,3 +110,11 @@ gce-list-nodes-count:
 
 gce-successful-pods:
 	kubectl get po | grep -P -c '1/1\s+Running\s+0'
+
+gce-failed-pods:
+	kubectl get po |grep -v Pending |grep -v Running
+
+gce-wait-for-pod-creation:
+	bash -c 'while [ $$(kubectl get po | grep -P -c "1/1\s+Running\s+0") -ne ${PODS} ] ;  do date; echo "Not enough nodes created - waiting"; kubectl describe rc |grep "Pods Status"; sleep 1;done'
+
+
