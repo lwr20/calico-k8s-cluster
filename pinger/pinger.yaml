@@ -19,7 +19,11 @@ spec:
       - name: busybox
         image: busybox
         imagePullPolicy: Never
+        resources:
+          requests:
+            memory: "1Mi"
+            cpu: "1m"
         command:
         - /bin/sh 
         - -c 
-        - 'wget -T 10 -q -O - 10.240.0.2:8080 || wget -T 10 -q -O - 10.240.0.2:8080 || wget -T 10 -q -O - 10.240.0.2:8080 || exit;sleep 99999'
+        - 'wget -T 10 -q -O - kube-scale-master:8080 || wget -T 10 -q -O - kube-scale-master:8080 || wget -T 10 -q -O - kube-scale-master:8080 || exit;sleep 99999'
