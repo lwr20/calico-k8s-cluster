@@ -46,11 +46,14 @@ scale-pinger:
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 CLUSTER_SIZE=26 pull-plugin-timings
 pull-plugin-timings: ${LOG_RETRIEVAL_TARGETS}
-	cat timings/*.log > timings/all.timings
+	grep TIMING timings/cni*.log > timings/all.timings
+	grep -v TIMING timings/cni*.log | grep -v INFO > timings/all.errors
+	-ssh -o LogLevel=quiet core@kube-scale-master.us-central1-a.unique-caldron-775 journalctl --no-pager >timings/master.log
 
 ${LOG_RETRIEVAL_TARGETS}: job%:
 	@mkdir -p timings
-	@ssh -o LogLevel=quiet core@kube-scale-master.us-central1-a.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no kube-scale-$* grep TIMING  /var/log/calico/cni/cni.log > timings/calico-$*.log
+	-ssh -o LogLevel=quiet core@kube-scale-master.us-central1-a.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no kube-scale-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log
+	-ssh -o LogLevel=quiet core@kube-scale-master.us-central1-a.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no kube-scale-$* journalctl --no-pager > timings/journal-$*.log
 
 .PHONEY: ${LOG_RETRIEVAL_TARGETS}
 
