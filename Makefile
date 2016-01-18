@@ -7,7 +7,7 @@ LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
 NODE_NAMES := $(addprefix kube-scale-,${NODE_NUMBERS})
 
 kubectl:
-	wget http://storage.googleapis.com/kubernetes-release/release/v1.1.3/bin/linux/amd64/kubectl
+	wget http://storage.googleapis.com/kubernetes-release/release/v1.1.4/bin/linux/amd64/kubectl
 	chmod +x kubectl
 
 calicoctl:
@@ -25,7 +25,6 @@ remove-heapster:
 	-kubectl delete rc influxdb-grafana --grace-period=1 --namespace=kube-system
 
 # Node selectors in the pod specs don't allow negation, so apply a label that can be used as-is here.
-# TODO - add a rety in here as the kubectl label nodes doesn't do them all.
 apply-node-labels:
 	bash -c 'while [ $$(kubectl get no |grep role=node -c) -ne ${CLUSTER_SIZE} ] ;  do kubectl label nodes -l kubernetes.io/hostname!=127.0.0.1 role=node; done'
 	kubectl get no

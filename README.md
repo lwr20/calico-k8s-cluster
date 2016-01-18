@@ -20,7 +20,7 @@ It was most recently run on GCE so some changes will be required to get it to ru
   * `make deploy-pinger`
     * This creates a replication controller for the pinger task
   * `make scale-pinger`
-    * Scales the numbers of pods
+
   * `make -j24 pull-plugin-timings`
     * Pull down the timing
     * Can scale the replication controller to 0 if you want deletion times too.
