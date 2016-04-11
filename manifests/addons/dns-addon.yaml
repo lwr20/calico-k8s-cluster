@@ -1,22 +1,45 @@
 apiVersion: v1
-kind: ReplicationController
+kind: Service
 metadata:
-  name: kube-dns-v8
+  name: kube-dns
   namespace: kube-system
   labels:
     k8s-app: kube-dns
-    version: v8
     kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: "KubeDNS"
 spec:
-  replicas: 1 
   selector:
     k8s-app: kube-dns
-    version: v8
+  clusterIP: 10.100.0.10
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+
+---
+
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: kube-dns-v9
+  namespace: kube-system
+  labels:
+    k8s-app: kube-dns
+    version: v9
+    kubernetes.io/cluster-service: "true"
+spec:
+  replicas: 1
+  selector:
+    k8s-app: kube-dns
+    version: v9
   template:
     metadata:
       labels:
         k8s-app: kube-dns
-        version: v8
+        version: v9
         kubernetes.io/cluster-service: "true"
     spec:
       containers:
@@ -48,7 +71,7 @@ spec:
         args:
         # command = "/kube2sky"
         - -domain=cluster.local
-        - -kube_master_url=http://172.18.18.101:8080
+        - -kube_master_url=http://kube-scale-master:8080
       - name: skydns
         image: gcr.io/google_containers/skydns:2015-03-11-001
         resources:
@@ -74,6 +97,13 @@ spec:
             scheme: HTTP
           initialDelaySeconds: 30
           timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 1
+          timeoutSeconds: 5
       - name: healthz
         image: gcr.io/google_containers/exechealthz:1.0
         resources:
@@ -89,4 +119,4 @@ spec:
       volumes:
       - name: etcd-storage
         emptyDir: {}
-      dnsPolicy: Default  # Don't use cluster DNS.
+      dnsPolicy: Default

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod 
+metadata:
+  name: calico-policy-agent
+  namespace: calico-system
+  labels:
+    version: latest
+    projectcalico.org/app: "policy-agent"
+spec:
+  hostNetwork: true
+  containers:
+    - name: policyagent    
+      image: caseydavenport/k8s-policy-agent:latest
+      env:
+      - name: ETCD_AUTHORITY
+        value: "localhost:2379"
+      - name: K8S_API
+        value: "http://localhost:8080"
+      - name: LOG_LEVEL
+        value: "info"
