@@ -1,6 +1,6 @@
 all: TODO
 
-CLUSTER_SIZE := 10
+CLUSTER_SIZE := 250
 PODS := 10000
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
@@ -62,7 +62,7 @@ gce-create: kubectl calicoctl
   	kube-scale-master \
   	--image-project coreos-cloud \
   	--image coreos-alpha-1010-1-0-v20160407 \
-  	--machine-type n1-highcpu-16 \
+  	--machine-type n1-standard-32 \
   	--local-ssd interface=scsi \
   	--metadata-from-file user-data=master-config-template.yaml
 
@@ -70,8 +70,10 @@ gce-create: kubectl calicoctl
   	${NODE_NAMES} \
   	--image-project coreos-cloud \
   	--image coreos-alpha-1010-1-0-v20160407 \
-  	--machine-type n1-highcpu-2 \
-  	--metadata-from-file user-data=node-config-template.yaml
+  	--machine-type n1-highcpu-4 \
+  	--metadata-from-file user-data=node-config-template.yaml \
+	--no-address \
+	--tags no-ip
 
 	make --no-print-directory gce-config-ssh
 	make --no-print-directory gce-forward-ports
