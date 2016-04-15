@@ -1,6 +1,15 @@
 #cloud-config
 ---
 write_files:
+  # Need to configure localhost since GCE doesn't do it for us.
+  # Specifically, the leader election container requires localhost
+  # to resolve to 127.0.0.1
+  - path: /etc/hosts 
+    owner: root
+    permissions: 0644
+    content: |
+      127.0.0.1    localhost
+
   # Network config file for the Calico CNI plugin.
   - path: /etc/cni/net.d/10-calico.conf 
     owner: root
@@ -60,18 +69,17 @@ write_files:
               - name: K8S_API
                 value: "http://127.0.0.1:8080"
               - name: LEADER_ELECTION 
-                value: "false"
+                value: "true"
           # Leader election container used by the policy agent.
-          # THIS IS NOT WORKING YET.
-          #- name: leader-elector
-          #  image: gcr.io/google_containers/leader-elector:0.4
-          #  imagePullPolicy: IfNotPresent
-          #  args:
-          #    - "--election=calico-policy-election"
-          #    - "--http=127.0.0.1:4040"
-          #  ports:
-          #    - containerPort: 4040
-          #      protocol: TCP
+          - name: leader-elector
+            image: gcr.io/google_containers/leader-elector:0.4
+            imagePullPolicy: IfNotPresent
+            args:
+              - "--election=calico-policy-election"
+              - "--http=127.0.0.1:4040"
+            ports:
+              - containerPort: 4040
+                protocol: TCP
 
   # NetworkPolicy object used by the test to allow traffic from
   # the "getter" pods to the nginx service.
@@ -301,9 +309,6 @@ coreos:
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubectl
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/k8s-policy/releases/download/v0.1.3/policy
         ExecStartPre=/usr/bin/chmod +x /opt/bin/policy
-        ExecStartPre=/opt/bin/kubectl config set-cluster default-cluster --server=http://127.0.0.1:8080
-        ExecStartPre=/opt/bin/kubectl config set-context default-system --cluster=default-cluster
-        ExecStartPre=/opt/bin/kubectl config use-context default-system
         ExecStartPre=-/opt/bin/kubectl create -f /home/core/networkpolicy.yaml
         ExecStartPre=/usr/bin/sleep 5
         ExecStart=-/opt/bin/policy create -f /home/core/nginx-policy.yaml

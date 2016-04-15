@@ -27,7 +27,7 @@ elapsed_by_start_time = {}
 
 # Those that we fail to parse.
 failed = []
-    
+
 # Arrays for scatter plots.
 agent_process_times = []
 
@@ -38,31 +38,32 @@ pod_logs_q = Queue.Queue()
 def collect_data():
     # Get all pod names in calico-system.
     print "Getting all pods in calico-system namespace"
-    all_pods = check_output(["kubectl", "get", 
-                             "pods", "--namespace=calico-system", 
+    all_pods = check_output(["kubectl", "get",
+                             "pods", "--namespace=calico-system",
                              "-o", "json"])
     all_pods = json.loads(all_pods)["items"]
     pod = all_pods[0]
-    
+
     # Get calico-k8s-policy-agent pod metadata.
     pod_name = str(all_pods[0]["metadata"]["name"])
-    
+
     # Extract logs.
     print "Getting calico policy agent logs"
-    calico_logs = check_output(["kubectl", "logs", "--namespace=calico-system", pod_name])
-    
+    calico_logs = check_output(["kubectl", "logs", "--namespace=calico-system",
+                                 pod_name, "-c", "k8s-policy-agent"])
+
     # Extract queue / total processing times from the logs.
     queue_times = queue_time_re.findall(calico_logs)
     process_times = proc_time_re.findall(calico_logs)
-    
+
     # Store the time spent in queue per-pod.
     for pod, time in queue_times:
         data_by_pod.setdefault(pod, {})["queue_time"] = float(time)
-    
+
     # Store the total process time per-pod.
     for pod, time in process_times:
         data_by_pod.setdefault(pod, {})["process_time"] = float(time)
-    
+
     # Get queue lengths and CPU, MEM usage.
     qlengths = qlen_re.findall(calico_logs)
     for _pod, length, t in qlengths:
@@ -73,22 +74,22 @@ def collect_data():
     print "Getting all pods in default namespace"
     all_pods = check_output(["kubectl", "get", "pods", "-o", "json"])
     all_pods = json.loads(all_pods)["items"]
-    
+
     # Get all "getter" pod names.
     pods = {str(p["metadata"]["name"]): p for p in all_pods
                     if "getter" in p["metadata"]["name"]}
-        
+
     print "Generating queue of pod names"
     for pod_name, pod in pods.iteritems():
         pod_names_q.put((pod_name, pod))
-    
+
     def get_logs():
         while True:
             try:
                 pod_name, pod = pod_names_q.get_nowait()
             except Queue.Empty:
                 break
-    
+
             try:
                 print "Getting logs for %s (remaining: %s)" % (pod_name, pod_names_q.qsize())
                 logs = check_output(["kubectl", "logs", pod_name])
@@ -97,7 +98,7 @@ def collect_data():
                 continue
             else:
                 pod_logs_q.put((pod_name, logs))
-    
+
     print "Starting threads to get logs"
     threads = []
     for i in range(100):
@@ -105,10 +106,10 @@ def collect_data():
         t.daemon = True
         t.start()
         threads.append(t)
-    
+
     for t in threads:
         t.join()
-    
+
     print "Finished getting logs, parsing"
     logs_by_pod = {}
     while True:
@@ -117,8 +118,8 @@ def collect_data():
         except Queue.Empty:
             break
         else:
-            logs_by_pod[pod_name] = logs 
-    
+            logs_by_pod[pod_name] = logs
+
     print "Parsing results"
     for pod_name, logs in logs_by_pod.iteritems():
         print "Pod %s \n%s" % (pod_name, logs)
@@ -130,31 +131,31 @@ def collect_data():
             start_time = datetime.datetime.strptime(start_dt, fmt)
             #start_time = float(start_re.findall(logs)[0])
         except IndexError:
-            print "pod has not started yet: %s" % pod_name 
+            print "pod has not started yet: %s" % pod_name
             failed.append((pod, logs, None))
             continue
-    
+
         try:
             end_time = float(end_re.findall(logs)[0])
         except IndexError:
-            print "No end time for pod: %s" % pod_name 
+            print "No end time for pod: %s" % pod_name
             failed.append((pod, logs, None))
             continue
-    
+
         try:
             elapsed = float(elapsed_re.findall(logs)[0])
         except IndexError:
-            print "No elapsed time for pod: %s" % pod_name 
+            print "No elapsed time for pod: %s" % pod_name
             failed.append((pod, logs, None))
             continue
-    
+
         # Determine the elapsed time and store in the mapping dict.
         times = elapsed_by_start_time.setdefault(start_time, [])
         times.append(elapsed)
-       
+
         if pod_name in data_by_pod:
             agent_process_times.append(data_by_pod[pod_name]["process_time"])
-    
+
         # Store data.
         data_by_pod.setdefault(pod_name, {}).update({
                 "times": time_re.findall(logs),
@@ -170,16 +171,16 @@ def display_data():
     elapsed_times = []
     for k, v in data_by_pod.iteritems():
         if "getter" in k:
-            # Some of the keys aren't actually pods, because this 
+            # Some of the keys aren't actually pods, because this
             # scripts is a hack.
             start_times.append(v["start_time"])
-            elapsed_times.append(v["elapsed_time"]) 
+            elapsed_times.append(v["elapsed_time"])
 
     # Order the start times.
-    ordered_start_times = sorted(start_times) 
-    
+    ordered_start_times = sorted(start_times)
+
     print "%s failed to get logs" % len(failed)
-    
+
     # Create histogram of elapsed time-to-connect.
     vals = []
     for _, l in elapsed_by_start_time.iteritems():
@@ -188,52 +189,52 @@ def display_data():
     pylab.xlabel('time to first connectivity')
     pylab.ylabel('Number of pods')
     pylab.show()
-    
+
     # Calculate start times, shifted to account
     # for the first pod to start.
     min_x = ordered_start_times[0]
     max_x = ordered_start_times[-1]
     x = [(t-min_x).seconds for t in start_times]
-    
+
     # Calculate 99th percentile time to first ping.
     ordered_elapsed_times = sorted(elapsed_times)
     index = int(.99 * len(ordered_start_times))
     percentile = ordered_elapsed_times[index]
     average = sum(elapsed_times) / len(elapsed_times)
-    
+
     # Print out some data.
     startup_time = (ordered_start_times[-1] - ordered_start_times[0]).seconds
-    print "Time to start %s pods: %s (%s pods/s)" % (len(x), 
-                                                     startup_time, 
+    print "Time to start %s pods: %s (%s pods/s)" % (len(x),
+                                                     startup_time,
                                                      len(x)/startup_time)
     print "99th percentile: %s" % percentile
     print "Average elapsed time: %s" % average
-    
+
     # Plot data.
     pylab.plot(x, elapsed_times, 'bo')
     pylab.xlabel('time(s)')
     pylab.ylabel('Time to first connectivity (s)')
     pylab.show()
-    
+
     if agent_process_times:
         # Plot agent process time versus pod started time.
-        pylab.plot(x, agent_process_times, "ro") 
+        pylab.plot(x, agent_process_times, "ro")
         pylab.xlabel('pod start time')
         pylab.ylabel('Time spent in agent')
         pylab.show()
-        
-    # Plot queue length over time, compared with total 
+
+    # Plot queue length over time, compared with total
     # API events and agent CPU usage.
     qlens = data_by_pod["qlengths"]
     qlen_x = data_by_pod["time"]
     qlen_x = [i - min(qlen_x) for i in qlen_x]
-    
+
     # Calculate number of received events.
     event_count = range(len(qlen_x))
-    
+
     pylab.plot(qlen_x, event_count, "ro",
                qlen_x, qlens, "bs")
-    
+
     pylab.xlabel('time')
     pylab.ylabel('Agent Queue Length')
     pylab.show()

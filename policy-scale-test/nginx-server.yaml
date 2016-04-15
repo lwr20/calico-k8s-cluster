@@ -1,8 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata: 
-  name: test
+  name: nginx 
 spec:
+  clusterIP: 10.100.0.50
   selector:
     k8s-app: nginx-server
   ports:
@@ -14,7 +15,7 @@ kind: ReplicationController
 metadata:
   name: nginx-server 
 spec:
-  replicas: 100
+  replicas: 1
   selector:
     k8s-app: nginx-server 
   template:

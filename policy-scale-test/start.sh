@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Create namespaces.
+kubectl create -f ../manifests/namespaces/
+
 # Create DNS.
 kubectl create -f dns-addon.yaml 
 
