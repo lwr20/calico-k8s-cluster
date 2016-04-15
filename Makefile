@@ -1,11 +1,15 @@
-all: TODO
-
-CLUSTER_SIZE := 250
-PODS := 10000
-NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
-LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
-NODE_NAMES := $(addprefix kube-scale-,${NODE_NUMBERS})
+# Cluster parameters go here.
+CLUSTER_SIZE := 2
 GCE_REGION=us-central1-b
+MASTER_INSTANCE_TYPE=n1-standard-32
+NODE_INSTANCE_TYPE=n1-highcpu-4
+
+# Generate node names.
+NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
+NODE_NAMES := $(addprefix kube-scale-,${NODE_NUMBERS})
+
+LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
+PODS := 10000
 
 kubectl:
 	wget http://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/darwin/amd64/kubectl
@@ -62,7 +66,7 @@ gce-create: kubectl calicoctl
   	kube-scale-master \
   	--image-project coreos-cloud \
   	--image coreos-alpha-1010-1-0-v20160407 \
-  	--machine-type n1-standard-32 \
+  	--machine-type ${MASTER_INSTANCE_TYPE} \
   	--local-ssd interface=scsi \
   	--metadata-from-file user-data=master-config-template.yaml
 
@@ -70,7 +74,7 @@ gce-create: kubectl calicoctl
   	${NODE_NAMES} \
   	--image-project coreos-cloud \
   	--image coreos-alpha-1010-1-0-v20160407 \
-  	--machine-type n1-highcpu-4 \
+  	--machine-type ${NODE_INSTANCE_TYPE} \
   	--metadata-from-file user-data=node-config-template.yaml \
 	--no-address \
 	--tags no-ip

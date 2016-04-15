@@ -20,6 +20,20 @@ write_files:
           }
       }
 
+  # NetworkPolicy ThirdPartyResource file.
+  - path: /home/core/networkpolicy.yaml
+    owner: root
+    permissions: 0755
+    content: |
+      kind: ThirdPartyResource
+      apiVersion: extensions/v1beta1
+      metadata:
+        name: network-policy.net.alpha.kubernetes.io
+      description: "Specification for a network isolation policy"
+      versions:
+        - name: v1alpha1
+
+  # Manifest which starts the Calico policy agent on the master.
   - path: /etc/kubernetes/manifests/calico-policy.yaml
     owner: root
     permissions: 0755
@@ -35,16 +49,32 @@ write_files:
       spec:
         hostNetwork: true
         containers:
-          - name: policyagent
-            image: caseydavenport/k8s-policy-agent:latest
+          # The Calico policy agent.
+          - name: k8s-policy-agent
+            image: calico/k8s-policy-agent:latest
+            imagePullPolicy: IfNotPresent 
             env:
-            - name: ETCD_AUTHORITY
-              value: "127.0.0.1:2379"
-            - name: K8S_API
-              value: "http://127.0.0.1:8080"
-            - name: LOG_LEVEL
-              value: "info"
+              # Modify ETCD_ENDPOINTS to match your etcd cluster.
+              - name: ETCD_ENDPOINTS
+                value: "http://127.0.0.1:2379"
+              - name: K8S_API
+                value: "http://127.0.0.1:8080"
+              - name: LEADER_ELECTION 
+                value: "false"
+          # Leader election container used by the policy agent.
+          # THIS IS NOT WORKING YET.
+          #- name: leader-elector
+          #  image: gcr.io/google_containers/leader-elector:0.4
+          #  imagePullPolicy: IfNotPresent
+          #  args:
+          #    - "--election=calico-policy-election"
+          #    - "--http=127.0.0.1:4040"
+          #  ports:
+          #    - containerPort: 4040
+          #      protocol: TCP
 
+  # NetworkPolicy object used by the test to allow traffic from
+  # the "getter" pods to the nginx service.
   - path: /home/core/nginx-policy.yaml
     owner: root
     permissions: 0755
@@ -193,8 +223,6 @@ coreos:
         User=root
         Environment=ETCD_AUTHORITY=$private_ipv4:2379
         PermissionsStartOnly=true
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/k8s-policy/releases/download/v0.1.3/policy
-        ExecStartPre=/usr/bin/chmod +x /opt/bin/policy
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.18.0/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/opt/bin/calicoctl pool add 192.168.0.0/16 --ipip --nat-outgoing
@@ -258,6 +286,33 @@ coreos:
         Restart=always
         RestartSec=10
 
+    # Installs the NetworkPolicy object used in the scale test.
+    - name: install-policy.service 
+      command: start
+      content: |
+        [Unit]
+        Description=Install Policy
+        Requires=docker.service kube-apiserver.service
+        After=docker.service
+
+        [Service]
+        TimeoutStartSec=0
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubectl
+        ExecStartPre=/usr/bin/chmod +x /opt/bin/kubectl
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/k8s-policy/releases/download/v0.1.3/policy
+        ExecStartPre=/usr/bin/chmod +x /opt/bin/policy
+        ExecStartPre=/opt/bin/kubectl config set-cluster default-cluster --server=http://127.0.0.1:8080
+        ExecStartPre=/opt/bin/kubectl config set-context default-system --cluster=default-cluster
+        ExecStartPre=/opt/bin/kubectl config use-context default-system
+        ExecStartPre=-/opt/bin/kubectl create -f /home/core/networkpolicy.yaml
+        ExecStartPre=/usr/bin/sleep 5
+        ExecStart=-/opt/bin/policy create -f /home/core/nginx-policy.yaml
+
+        [Install]
+        WantedBy=multi-user.target
+
+    # Downloads binaries and serves them to other nodes in the cluster.  This is done
+    # to minimize GET requests to GitHub, etc.
     - name: nginx.service
       command: start
       content: |
@@ -278,6 +333,7 @@ coreos:
         [Install]
         WantedBy=multi-user.target
 
+    # Local Docker registry - nodes pull the calico/node image from here.
     - name: registry.service
       command: start
       content: |
