@@ -24,7 +24,7 @@ coreos:
   etcd2:
     proxy: on 
     listen-client-urls: http://127.0.0.1:2379
-    initial-cluster: etcdserver=http://kube-scale-master:2380
+    initial-cluster: etcd-00=http://kube-scale-etcd-01:2380,etcd-01=http://kube-scale-etcd-02:2380,etcd-02=http://kube-scale-etcd-03:2380
   fleet:
     metadata: "role=node"
     etcd_servers: "http://127.0.0.1:2379"
