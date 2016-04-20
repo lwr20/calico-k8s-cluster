@@ -15,7 +15,10 @@ write_files:
               "type": "calico-ipam"
           },
           "policy": {
-              "type": "k8s"
+              "type": "k8s",
+              "k8s_api_root": "https://172.18.18.101:443/api/v1/",
+              "k8s_client_certificate": "/etc/kubernetes/ssl/worker.pem",
+              "k8s_client_key": "/etc/kubernetes/ssl/worker-key.pem" 
           }
       }
 
@@ -97,7 +100,7 @@ coreos:
         PermissionsStartOnly=true
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.18.0/calicoctl 
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
-        ExecStart=/opt/bin/calicoctl node --detach=false
+        ExecStart=/opt/bin/calicoctl node --detach=false --node-image=calico/node:v0.18.0
         Restart=always
         RestartSec=10
 
