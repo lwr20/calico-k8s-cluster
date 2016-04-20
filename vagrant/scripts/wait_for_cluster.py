@@ -7,6 +7,9 @@ from subprocess import check_output
 # Max time to wait for nodes to start.
 MAX_SECONDS = 60
 
+# Total number of nodes, including the master.
+NUM_NODES = 3
+
 kubectl_path = "%s/kubectl" % os.getcwd()
 
 print("Waiting up to %ss for nodes..." % MAX_SECONDS)
@@ -16,7 +19,7 @@ for i in range(MAX_SECONDS):
 	
 	# Check if we should exit.
 	print("%s node(s) started" % len(nodes))
-	if len(nodes) >= 2:
+	if len(nodes) >= NUM_NODES:
 		print("All nodes started")
 		sys.exit(0)
 	if i == MAX_SECONDS:
