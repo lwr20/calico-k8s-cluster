@@ -1,6 +1,6 @@
 # Cluster parameters go here.
 CLUSTER_SIZE := 2
-GCE_REGION=us-central1-b
+GCE_REGION=us-central1-f
 MASTER_INSTANCE_TYPE=n1-standard-32
 NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
@@ -96,7 +96,8 @@ gce-create-etcd:
   	--image coreos-alpha-1010-1-0-v20160407 \
   	--machine-type ${ETCD_INSTANCE_TYPE} \
   	--local-ssd interface=scsi \
-  	--metadata-from-file user-data=etcd-config-01.yaml
+  	--no-address \
+  	--metadata-from-file user-data=etcd-config-01.yaml &
 
 	gcloud compute instances create \
   	kube-scale-etcd-02 \
@@ -104,7 +105,8 @@ gce-create-etcd:
   	--image coreos-alpha-1010-1-0-v20160407 \
   	--machine-type ${ETCD_INSTANCE_TYPE} \
   	--local-ssd interface=scsi \
-  	--metadata-from-file user-data=etcd-config-02.yaml
+  	--no-address \
+  	--metadata-from-file user-data=etcd-config-02.yaml &
 
 	gcloud compute instances create \
   	kube-scale-etcd-03 \
@@ -112,6 +114,7 @@ gce-create-etcd:
   	--image coreos-alpha-1010-1-0-v20160407 \
   	--machine-type ${ETCD_INSTANCE_TYPE} \
   	--local-ssd interface=scsi \
+  	--no-address \
   	--metadata-from-file user-data=etcd-config-03.yaml
 
 
