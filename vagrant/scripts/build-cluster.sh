@@ -25,6 +25,6 @@ git pull -f origin $CALICO_CNI_BRANCH
 cd ..
 
 # Build the cluster.
-make cluster
+make OS=linux cluster
 
 set +e
