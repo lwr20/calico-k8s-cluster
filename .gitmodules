@@ -1,0 +1,3 @@
+[submodule "vagrant/calico-cni"]
+	path = vagrant/calico-cni
+	url = https://github.com/projectcalico/calico-cni.git

@@ -1,0 +1,15 @@
+kind: NetworkPolicy
+apiVersion: net.alpha.kubernetes.io/v1alpha1
+metadata:
+  namespace: default
+  name: nginx-service 
+spec:
+  podSelector:
+    k8s-app: nginx-server 
+  ingress:
+    - from:
+        - pods:
+            role: getter 
+      ports:
+        - protocol: TCP
+          port: 80
