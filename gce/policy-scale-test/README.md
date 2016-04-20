@@ -1,11 +1,9 @@
 This "demo" is actually a simple scale test for the Calico policy agent (current testing caseydavenport/k8s-policy-agent:latest).
 
-Create a cluster using `make cluster`.
+Create a cluster using `make gce-create`.
 
-To set up the demo, run 'demos/policy-scale-test/start.sh' on the `k8s-master` machine. 
+To set up the demo, run './start.sh'. 
 ```
-vagrant ssh k8s-master
-cd demos/policy-scale-test
 ./start.sh
 ```
 
@@ -22,7 +20,7 @@ First, you must scale the ReplicationController to the desired scale, e.g:
 kubectl scale rc getter --replicas=100
 ```
 
-Once all pods have gone to "Running" state, you can run the following command in the root of this repo to produce plots.
+Once all pods have gone to "Running" state, you can run the following script in this directory to produce plots.
 ```
 python -i scripts/get-data.py
 ```
