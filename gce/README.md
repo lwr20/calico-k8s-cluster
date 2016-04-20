@@ -29,10 +29,6 @@ It was most recently run on GCE so some changes will be required to get it to ru
   * `make gce-cleanup`
     * Removes all the VMs
   
-### Master cloud config
-TODO
-### Node cloud config
-TODO
 ## Changes to run on Vagrant
 This was originally written for vagrant and the changes required for running on vagrant should be minimal.
 * Change any instances of kube-scale-master to 172.18.18.101
