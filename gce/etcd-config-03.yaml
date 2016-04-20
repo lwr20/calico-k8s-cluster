@@ -1,0 +1,67 @@
+#cloud-config
+---
+write_files:
+  # Need to configure localhost since GCE doesn't do it for us.
+  # Specifically, the leader election container requires localhost
+  # to resolve to 127.0.0.1
+  - path: /etc/hosts 
+    owner: root
+    permissions: 0644
+    content: |
+      127.0.0.1    localhost
+
+coreos:
+  update:
+    reboot-strategy: off
+  etcd2:
+    name: etcd-02
+    initial-cluster: etcd-00=http://kube-scale-etcd-01:2380,etcd-01=http://kube-scale-etcd-02:2380,etcd-02=http://kube-scale-etcd-03:2380
+    initial-cluster-state: new
+    initial-cluster-token: etcd-cluster-1
+    advertise-client-urls: http://$private_ipv4:2379
+    initial-advertise-peer-urls: http://$private_ipv4:2380
+    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
+    listen-peer-urls: http://0.0.0.0:2380
+    data-dir: /mnt/ssd/etcd2
+  units:
+    - name: "etcd2.service"
+      command: "start"
+      drop-ins:
+        - name: 10-procs.conf
+          content: |
+            [Service]
+            Environment=GOMAXPROCS=16
+            LimitNOFILE=40000
+    - name: format-ephemeral.service
+      command: start
+      content: |
+        [Unit]
+        Description=Formats the ephemeral drive
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/sbin/wipefs -f /dev/sdb
+        ExecStart=/usr/sbin/mkfs.btrfs -f /dev/sdb
+    - name: mnt-ssd.mount
+      command: start
+      content: |
+        [Unit]
+        Description=Mount ephemeral to /mnt/ssd
+        Requires=format-ephemeral.service
+        After=format-ephemeral.service
+        Before=fix-permission.service
+        [Mount]
+        What=/dev/sdb
+        Where=/mnt/ssd
+        DirectoryMode=0777
+        Type=btrfs
+    - name: fix-permission.service
+      command: start
+      content: |
+        [Unit]
+        Description=Formats the ephemeral drive
+        Before=etcd2.service
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/bin/chmod 777 /mnt/ssd
