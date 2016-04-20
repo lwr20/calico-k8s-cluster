@@ -8,11 +8,14 @@ NODE_INSTANCE_TYPE=n1-highcpu-4
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
 NODE_NAMES := $(addprefix kube-scale-,${NODE_NUMBERS})
 
+# Figure out what OS we're on (OSX or Linux) and lowercase it
+OS := $(shell uname -s | tr A-Z a-z)
+
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
 PODS := 10000
 
 kubectl:
-	wget http://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/darwin/amd64/kubectl
+	wget http://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/${OS}/amd64/kubectl
 	chmod +x kubectl
 
 calicoctl:
