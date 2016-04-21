@@ -231,7 +231,7 @@ coreos:
         User=root
         Environment=ETCD_ENDPOINTS=http://kube-scale-etcd-01:2379,http://kube-scale-etcd-02:2379,http://kube-scale-etcd-03:2379
         PermissionsStartOnly=true
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.18.0/calicoctl
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/opt/bin/calicoctl pool add 192.168.0.0/16 --ipip --nat-outgoing
         ExecStart=/opt/bin/calicoctl node --detach=false
@@ -328,7 +328,7 @@ coreos:
 
         [Service]
         TimeoutStartSec=0
-        ExecStartPre=/usr/bin/wget -nc -P /tmp https://github.com/projectcalico/calico-containers/releases/download/v0.18.0/calicoctl
+        ExecStartPre=/usr/bin/wget -nc -P /tmp https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
         ExecStartPre=/usr/bin/wget -nc -P /tmp https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico  
         ExecStartPre=-/usr/bin/docker kill mynginx
         ExecStartPre=-/usr/bin/docker rm mynginx
@@ -352,8 +352,8 @@ coreos:
         ExecStartPre=-/usr/bin/docker kill registry
         ExecStartPre=-/usr/bin/docker rm registry
         ExecStartPre=-/usr/bin/docker pull registry:2
-        ExecStartPre=-/usr/bin/docker pull calico/node:v0.18.0
-        ExecStartPre=-/usr/bin/docker tag calico/node:v0.18.0 kube-scale-master:5000/calico-node
+        ExecStartPre=-/usr/bin/docker pull calico/node:v0.19.0
+        ExecStartPre=-/usr/bin/docker tag calico/node:v0.19.0 kube-scale-master:5000/calico-node
         ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
         ExecStartPost=/bin/sleep 5
         ExecStartPost=/usr/bin/docker push kube-scale-master:5000/calico-node
