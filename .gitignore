@@ -7,4 +7,4 @@ timings
 vagrant/ssl/*.pem
 vagrant/ssl/*.csr
 vagrant/ssl/*.srl
-
+env/
