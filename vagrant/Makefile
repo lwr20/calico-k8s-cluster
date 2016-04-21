@@ -1,8 +1,7 @@
 K8S_VERSION=1.2.0
 
-# Which OS version to use for kubectl
-# `darwin` or `linux`
-OS=darwin
+# Figure out what OS we're on (OSX or Linux) and lowercase it
+OS := $(shell uname -s | tr A-Z a-z)
 
 ssl-keys: ssl/admin.pem ssl/apiserver.pem 
 
