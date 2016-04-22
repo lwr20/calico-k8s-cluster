@@ -188,7 +188,9 @@ def display_data():
     pylab.hist(vals)
     pylab.xlabel('time to first connectivity')
     pylab.ylabel('Number of pods')
-    pylab.show()
+    #pylab.show()
+    pylab.savefig('ttfp_relative.png', bbox_inches='tight')
+
 
     # Calculate start times, shifted to account
     # for the first pod to start.
@@ -214,14 +216,16 @@ def display_data():
     pylab.plot(x, elapsed_times, 'bo')
     pylab.xlabel('time(s)')
     pylab.ylabel('Time to first connectivity (s)')
-    pylab.show()
+    #pylab.show()
+    pylab.savefig('ttfp_absolute.png', bbox_inches='tight')
 
     if agent_process_times:
         # Plot agent process time versus pod started time.
         pylab.plot(x, agent_process_times, "ro")
         pylab.xlabel('pod start time')
         pylab.ylabel('Time spent in agent')
-        pylab.show()
+        pylab.savefig('agent_time.png', bbox_inches='tight')
+        #pylab.show()
 
     # Plot queue length over time, compared with total
     # API events and agent CPU usage.
@@ -237,7 +241,8 @@ def display_data():
 
     pylab.xlabel('time')
     pylab.ylabel('Agent Queue Length')
-    pylab.show()
+    pylab.savefig('agent_q_length.png', bbox_inches='tight')
+    #pylab.show()
 
 def write_data():
     # Write to file.
