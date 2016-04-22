@@ -8,3 +8,4 @@ vagrant/ssl/*.pem
 vagrant/ssl/*.csr
 vagrant/ssl/*.srl
 env/
+gce/policy-scale-test/results/
