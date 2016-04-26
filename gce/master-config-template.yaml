@@ -249,13 +249,18 @@ coreos:
         Description=Kubernetes Kubelet
         Documentation=https://github.com/kubernetes/kubernetes
         After=docker.service
+        After=etcd2.service
+        After=calico-node.service
         Requires=docker.service
 
         [Service]
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
-        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico  
-        ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico
+        ExecStartPre=/usr/bin/mkdir -p /tmp/calico-cni-archive
+        ExecStartPre=/usr/bin/wget -N -P /tmp/calico-cni-archive https://transfer.sh/bw4hX/calico-cni.tgz
+        ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni-archive/calico-cni.tgz
+        ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
+        ExecStartPre=/usr/bin/ln -fs /opt/calico/calico /opt/cni/bin/calico
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \
@@ -329,7 +334,7 @@ coreos:
         [Service]
         TimeoutStartSec=0
         ExecStartPre=/usr/bin/wget -nc -P /tmp https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
-        ExecStartPre=/usr/bin/wget -nc -P /tmp https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico  
+        ExecStartPre=/usr/bin/wget -nc -P /tmp https://transfer.sh/bw4hX/calico-cni.tgz
         ExecStartPre=-/usr/bin/docker kill mynginx
         ExecStartPre=-/usr/bin/docker rm mynginx
         ExecStartPre=/usr/bin/docker pull nginx
