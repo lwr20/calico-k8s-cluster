@@ -1,7 +1,7 @@
 # Cluster parameters go here.
 CLUSTER_SIZE := 2
 GCE_REGION=us-central1-f
-MASTER_INSTANCE_TYPE=n1-standard-32
+MASTER_INSTANCE_TYPE=n1-standard-16
 NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
 
