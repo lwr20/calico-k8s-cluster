@@ -10,6 +10,9 @@ import threading
 from dateutil import parser
 from subprocess import check_output
 
+SAVE_GRAPHS = True
+DISPLAY_GRAPHS = False
+
 # Various regexes.
 queue_time_re = re.compile("INFO \('default', '(.*)'\) time on the queue: ([0-9\.]+)")
 proc_time_re = re.compile("INFO \('default', '(.*)'\) total process time: ([0-9]+\.[0-9]+)")
@@ -188,9 +191,10 @@ def display_data():
     pylab.hist(vals)
     pylab.xlabel('time to first connectivity')
     pylab.ylabel('Number of pods')
-    #pylab.show()
-    pylab.savefig('ttfp_relative.png', bbox_inches='tight')
-
+    if SAVE_GRAPHS:
+        pylab.savefig('ttfp_relative.png', bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
     # Calculate start times, shifted to account
     # for the first pod to start.
@@ -216,16 +220,20 @@ def display_data():
     pylab.plot(x, elapsed_times, 'bo')
     pylab.xlabel('time(s)')
     pylab.ylabel('Time to first connectivity (s)')
-    #pylab.show()
-    pylab.savefig('ttfp_absolute.png', bbox_inches='tight')
+    if SAVE_GRAPHS:
+        pylab.savefig('ttfp_absolute.png', bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
     if agent_process_times:
         # Plot agent process time versus pod started time.
         pylab.plot(x, agent_process_times, "ro")
         pylab.xlabel('pod start time')
         pylab.ylabel('Time spent in agent')
+    if SAVE_GRAPHS:
         pylab.savefig('agent_time.png', bbox_inches='tight')
-        #pylab.show()
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
     # Plot queue length over time, compared with total
     # API events and agent CPU usage.
@@ -241,8 +249,11 @@ def display_data():
 
     pylab.xlabel('time')
     pylab.ylabel('Agent Queue Length')
-    pylab.savefig('agent_q_length.png', bbox_inches='tight')
-    #pylab.show()
+    if SAVE_GRAPHS:
+        pylab.savefig('agent_q_length.png', bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
+
 
 def write_data():
     # Write to file.
