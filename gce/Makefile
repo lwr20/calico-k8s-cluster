@@ -68,6 +68,7 @@ ${LOG_RETRIEVAL_TARGETS}: job%:
 gce-create: kubectl calicoctl
 	-gcloud compute instances create \
   	kube-scale-master \
+  	--zone ${GCE_REGION} \
   	--image-project coreos-cloud \
   	--image coreos-alpha-1010-1-0-v20160407 \
   	--machine-type ${MASTER_INSTANCE_TYPE} \
@@ -79,6 +80,7 @@ gce-create: kubectl calicoctl
 	gcloud compute instances create \
   	${NODE_NAMES} \
   	--image-project coreos-cloud \
+  	--zone ${GCE_REGION} \
   	--image coreos-alpha-1010-1-0-v20160407 \
   	--machine-type ${NODE_INSTANCE_TYPE} \
   	--metadata-from-file user-data=node-config-template.yaml \
@@ -92,6 +94,7 @@ gce-create: kubectl calicoctl
 gce-create-etcd:
 	gcloud compute instances create \
   	kube-scale-etcd-01 \
+  	--zone ${GCE_REGION} \
   	--image-project coreos-cloud \
   	--image coreos-alpha-1010-1-0-v20160407 \
   	--machine-type ${ETCD_INSTANCE_TYPE} \
@@ -101,6 +104,7 @@ gce-create-etcd:
 
 	gcloud compute instances create \
   	kube-scale-etcd-02 \
+  	--zone ${GCE_REGION} \
   	--image-project coreos-cloud \
   	--image coreos-alpha-1010-1-0-v20160407 \
   	--machine-type ${ETCD_INSTANCE_TYPE} \
@@ -110,6 +114,7 @@ gce-create-etcd:
 
 	gcloud compute instances create \
   	kube-scale-etcd-03 \
+  	--zone ${GCE_REGION} \
   	--image-project coreos-cloud \
   	--image coreos-alpha-1010-1-0-v20160407 \
   	--machine-type ${ETCD_INSTANCE_TYPE} \
