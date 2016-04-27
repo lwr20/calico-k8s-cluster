@@ -10,17 +10,14 @@ write_files:
       - job_name: felix
         scrape_interval: 10s
         target_groups:
-        - targets: ['smc-kube-scale-01:9091', 'smc-kube-scale-02:9091']
+        - targets: __FELIXES__
       - job_name: etcd-driver
         scrape_interval: 10s
         target_groups:
-        - targets: ['smc-kube-scale-01:9092', 'smc-kube-scale-02:9092']
+        - targets: __DRIVERS__
 
 coreos:
-  etcd2:
-    proxy: on
-    listen-client-urls: http://127.0.0.1:2379
-    initial-cluster: etcd-00=http://smc-kube-scale-etcd-01:2380,etcd-01=http://smc-kube-scale-etcd-02:2380,etcd-02=http://smc-kube-scale-etcd-03:2380
+
   fleet:
     metadata: "role=node"
     etcd_servers: "http://127.0.0.1:2379"
@@ -33,8 +30,6 @@ coreos:
           content: |
             [Service]
             Environment=DOCKER_OPTS='--insecure-registry="smc-kube-scale-master:5000"'
-    - name: etcd2.service
-      command: start
     - name: fleet.service
       command: start
     - name: prom.service

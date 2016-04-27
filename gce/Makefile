@@ -1,5 +1,6 @@
 # Cluster parameters go here.
 CLUSTER_SIZE := 2
+ETCD_CLUSTER_SIZE := 3
 GCE_REGION=us-central1-f
 MASTER_INSTANCE_TYPE=n1-standard-16
 NODE_INSTANCE_TYPE=n1-highcpu-4
@@ -10,6 +11,9 @@ PREFIX=smc-kube-scale
 # Generate node names.
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
 NODE_NAMES := $(addprefix ${PREFIX}-,${NODE_NUMBERS})
+ETCD_NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${ETCD_CLUSTER_SIZE})
+ETCD_NODE_NAMES := $(addprefix ${PREFIX}-etcd-,${ETCD_NODE_NUMBERS})
+ETCD_CONFIG_FILENAMES := $(addprefix build/etcd-,${ETCD_NODE_NUMBERS})
 
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
@@ -64,7 +68,7 @@ ${LOG_RETRIEVAL_TARGETS}: job%:
 
 .PHONEY: ${LOG_RETRIEVAL_TARGETS}
 
-gce-create: kubectl calicoctl
+gce-create: kubectl calicoctl build/prometheus.yaml
 	-gcloud compute instances create \
   	${PREFIX}-master \
   	--zone ${GCE_REGION} \
@@ -92,7 +96,7 @@ gce-create: kubectl calicoctl
 	  --zone ${GCE_REGION} \
 	  --image coreos-alpha-1010-1-0-v20160407 \
 	  --machine-type ${PROM_INSTANCE_TYPE} \
-	  --metadata-from-file user-data=prom-config-template.yaml \
+	  --metadata-from-file user-data=build/prometheus.yaml \
 	  --no-address \
 	  --tags no-ip
 
@@ -100,37 +104,48 @@ gce-create: kubectl calicoctl
 	make --no-print-directory gce-forward-ports
 	#make --no-print-directory apply-node-labels
 
-gce-create-etcd:
-	gcloud compute instances create \
-  	${PREFIX}-etcd-01 \
-  	--zone ${GCE_REGION} \
-  	--image-project coreos-cloud \
-  	--image coreos-alpha-1010-1-0-v20160407 \
-  	--machine-type ${ETCD_INSTANCE_TYPE} \
-  	--local-ssd interface=scsi \
-  	--no-address \
-  	--metadata-from-file user-data=etcd-config-01.yaml &
+build/etcd-%: etcd-template.yaml
+	mkdir -p build
+	etcd_peers="";\
+	delim="";\
+	for ii in ${ETCD_NODE_NUMBERS}; do \
+	  etcd_peers=$$etcd_peers$${delim}etcd-$$ii=http://${PREFIX}-etcd-$$ii:2380; \
+	  delim=","; \
+	done;\
+	echo "Etcd peers $${etcd_peers}"; \
+	node_name=`basename $@`; \
+	cat etcd-template.yaml | sed "s~__ETCD_PEERS__~$$etcd_peers~g" | sed "s/__ETCD_NODE_NAME__/$$node_name/g" > $@;
 
-	gcloud compute instances create \
-  	${PREFIX}-etcd-02 \
-  	--zone ${GCE_REGION} \
-  	--image-project coreos-cloud \
-  	--image coreos-alpha-1010-1-0-v20160407 \
-  	--machine-type ${ETCD_INSTANCE_TYPE} \
-  	--local-ssd interface=scsi \
-  	--no-address \
-  	--metadata-from-file user-data=etcd-config-02.yaml &
+build/prometheus.yaml: prom-config-template.yaml Makefile
+	mkdir -p build
+	felixes="[";\
+	drivers="[";\
+	delim="";\
+	for ii in ${NODE_NAMES}; do \
+	  felixes="$$felixes$$delim'$$ii:9091'"; \
+	  drivers="$$drivers$$delim'$$ii:9092'"; \
+	  delim=", "; \
+	done;\
+	echo "Felixes $${felixes}"; \
+	echo "Drivers $${drivers}"; \
+	cat prom-config-template.yaml | sed "s~__FELIXES__~$$felixes]~g" | sed "s/__DRIVERS__/$$drivers]/g" > $@;
 
-	gcloud compute instances create \
-  	${PREFIX}-etcd-03 \
-  	--zone ${GCE_REGION} \
-  	--image-project coreos-cloud \
-  	--image coreos-alpha-1010-1-0-v20160407 \
-  	--machine-type ${ETCD_INSTANCE_TYPE} \
-  	--local-ssd interface=scsi \
-  	--no-address \
-  	--metadata-from-file user-data=etcd-config-03.yaml
-
+gce-create-etcd: ${ETCD_CONFIG_FILENAMES} Makefile
+	for ii in ${ETCD_NODE_NUMBERS}; do \
+	  echo "Starting ${PREFIX}-etcd-$$ii"; \
+	  gcloud compute instances create \
+        ${PREFIX}-etcd-$$ii \
+        --zone ${GCE_REGION} \
+        --image-project coreos-cloud \
+        --image coreos-alpha-1010-1-0-v20160407 \
+        --machine-type ${ETCD_INSTANCE_TYPE} \
+        --local-ssd interface=scsi \
+        --no-address \
+        --metadata-from-file user-data=build/etcd-$$ii & \
+	done; \
+	echo "Waiting for creation of etcd nodes to finish..."; \
+	wait; \
+	echo "etcd nodes started."
 
 gce-cleanup:
 	gcloud compute instances list --zones ${GCE_REGION} -r '${PREFIX}.*' |tail -n +2 |cut -f1 -d' ' |xargs gcloud compute instances delete --zone ${GCE_REGION}

@@ -14,8 +14,8 @@ coreos:
   update:
     reboot-strategy: off
   etcd2:
-    name: etcd-01
-    initial-cluster: etcd-00=http://smc-kube-scale-etcd-01:2380,etcd-01=http://smc-kube-scale-etcd-02:2380,etcd-02=http://smc-kube-scale-etcd-03:2380
+    name: __ETCD_NODE_NAME__
+    initial-cluster: __ETCD_PEERS__
     initial-cluster-state: new
     initial-cluster-token: etcd-cluster-1
     advertise-client-urls: http://$private_ipv4:2379
