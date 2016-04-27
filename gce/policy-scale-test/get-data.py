@@ -55,7 +55,7 @@ def collect_data():
     # Extract logs.
     print "Getting calico policy agent logs"
     calico_logs = check_output(["kubectl", "logs", "--namespace=calico-system",
-                                 pod_name, "-c", "k8s-policy-agent"])
+                                pod_name, "-c", "k8s-policy-agent"])
     write_data("calico-system", all_pods)
 
     # Extract queue / total processing times from the logs.
@@ -97,7 +97,8 @@ def collect_data():
                 break
 
             try:
-                print "Getting logs for %s (remaining: %s)" % (pod_name, pod_names_q.qsize())
+                print "Getting logs for %s (remaining: %s)" % (
+                    pod_name, pod_names_q.qsize())
                 logs = check_output(["kubectl", "logs", pod_name])
             except subprocess.CalledProcessError, e:
                 print "Error getting logs for: %s" % pod_name
@@ -120,7 +121,7 @@ def collect_data():
     logs_by_pod = {}
     while True:
         try:
-            pod_name, logs =  pod_logs_q.get_nowait()
+            pod_name, logs = pod_logs_q.get_nowait()
         except Queue.Empty:
             break
         else:
@@ -170,6 +171,7 @@ def collect_data():
                 "logs": logs,
                 "raw": pod
         })
+
 
 def display_data():
     # Extract data to display.
@@ -268,13 +270,6 @@ def write_data(filename, data):
     print "Writing to file: %s" % filename
     with open("testdata/%s" % filename, "a") as f:
         f.write(json.dumps(data))
-
-def get_diags():
-    #ssh core@kube-scale-master.us-central1-f.unique-caldron-775
-    #sudo tar zch --ignore-failed-read -C /var/log/calico felix >
-    ## $TARGET/felix.tar.gz
-    #journalctl -b | gzip -c > $TARGET/journal.gz
-    pass
 
 if __name__ == "__main__":
     collect_data()
