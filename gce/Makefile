@@ -1,7 +1,7 @@
 # Cluster parameters go here.
 CLUSTER_SIZE := 2
 GCE_REGION=us-central1-f
-MASTER_INSTANCE_TYPE=n1-standard-32
+MASTER_INSTANCE_TYPE=n1-standard-8
 NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
 PREFIX=kube-scale
@@ -13,6 +13,8 @@ NODE_NAMES := $(addprefix ${PREFIX}-,${NODE_NUMBERS})
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
 
+# Add on the etcd nodes and master
+NODE_NUMBERS += etcd-01 etcd-02 etcd-03 master
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
 PODS := 10000
 
@@ -60,6 +62,7 @@ ${LOG_RETRIEVAL_TARGETS}: job%:
 	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* sudo tar -cvzf - /var/log/calico > timings/logs-$*.tgz
 	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log
 	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* journalctl --no-pager > timings/journal-$*.log
+	-gcloud compute instances get-serial-port-output ${PREFIX}-$* > timings/serial-$*.log
 
 .PHONEY: ${LOG_RETRIEVAL_TARGETS}
 
