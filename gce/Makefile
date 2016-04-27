@@ -5,7 +5,7 @@ MASTER_INSTANCE_TYPE=n1-standard-16
 NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
 PROM_INSTANCE_TYPE=n1-standard-4
-PREFIX=kube-scale
+PREFIX=smc-kube-scale
 
 # Generate node names.
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})

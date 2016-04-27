@@ -120,7 +120,7 @@ def collect_data():
     logs_by_pod = {}
     while True:
         try:
-            pod_name, logs =  pod_logs_q.get_nowait()
+            pod_name, logs = pod_logs_q.get_nowait()
         except Queue.Empty:
             break
         else:
@@ -128,7 +128,7 @@ def collect_data():
 
     print "Parsing results"
     for pod_name, logs in logs_by_pod.iteritems():
-        print "Pod %s \n%s" % (pod_name, logs)
+        print "Pod %s \n%s" % (pod_name, logs.splitlines()[-5:])
         pod = pods.get(pod_name)
         try:
             # Format: 2016-04-11T21:04:15Z
