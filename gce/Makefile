@@ -58,8 +58,8 @@ pull-plugin-timings: ${LOG_RETRIEVAL_TARGETS}
 ${LOG_RETRIEVAL_TARGETS}: job%:
 	@mkdir -p timings
 	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* sudo tar -cvzf - /var/log/calico > timings/logs-$*.tgz
-	-ssh -A -o LogLevel=quiet core@kube-scale-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no kube-scale-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log
-	-ssh -A -o LogLevel=quiet core@kube-scale-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no kube-scale-$* journalctl --no-pager > timings/journal-$*.log
+	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log
+	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* journalctl --no-pager > timings/journal-$*.log
 
 .PHONEY: ${LOG_RETRIEVAL_TARGETS}
 
