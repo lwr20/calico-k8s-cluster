@@ -1,0 +1,57 @@
+#cloud-config
+---
+write_files:
+  # Network config file for the Calico CNI plugin.
+  - path: /etc/prometheus.yml
+    owner: root
+    permissions: 0655
+    content: |
+      scrape_configs:
+      - job_name: felix
+        scrape_interval: 10s
+        target_groups:
+        - targets: ['kube-scale-01:9091', 'kube-scale-02:9091']
+      - job_name: etcd-driver
+        scrape_interval: 10s
+        target_groups:
+        - targets: ['kube-scale-01:9092', 'kube-scale-02:9092']
+
+coreos:
+  etcd2:
+    proxy: on 
+    listen-client-urls: http://127.0.0.1:2379
+    initial-cluster: etcd-00=http://kube-scale-etcd-01:2380,etcd-01=http://kube-scale-etcd-02:2380,etcd-02=http://kube-scale-etcd-03:2380
+  fleet:
+    metadata: "role=node"
+    etcd_servers: "http://127.0.0.1:2379"
+  update:
+    reboot-strategy: off
+  units:
+    - name: "docker.service"
+      drop-ins:
+        - name: "50-insecure-registry.conf"
+          content: |
+            [Service]
+            Environment=DOCKER_OPTS='--insecure-registry="kube-scale-master:5000"'
+    - name: etcd2.service
+      command: start
+    - name: fleet.service
+      command: start
+    - name: prom.service
+      command: start
+      content: |
+        [Unit]
+        Description=Prometheus
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        TimeoutStartSec=0
+        ExecStart=/usr/bin/docker run --name prometheus -p 9090:9090 \
+                  -v /etc/prometheus.yml:/etc/prometheus.yml \
+                  -d \
+                  prom/prometheus \
+                  -config.file=/etc/prometheus.yml
+
+        [Install]
+        WantedBy=multi-user.target
