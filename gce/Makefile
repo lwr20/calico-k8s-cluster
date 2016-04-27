@@ -127,6 +127,17 @@ build/master.yaml: master-config-template.yaml Makefile
 	echo "Etcd peers $${etcd_peers}"; \
 	cat master-config-template.yaml | sed "s~__ETCD_PEERS__~$$etcd_peers~g" | sed "s/__CLUSTER_PREFIX__/${PREFIX}/g" > $@;
 
+build/node.yaml: node-config-template.yaml Makefile
+	mkdir -p build
+	etcd_cluster="";\
+	delim="";\
+	for ii in ${ETCD_NODE_NUMBERS}; do \
+	  etcd_cluster=$$etcd_cluster$${delim}etcd-$$ii=http://${PREFIX}-etcd-$$ii:2380; \
+	  delim=","; \
+	done;\
+	echo "Etcd peers $${etcd_cluster}"; \
+	cat node-config-template.yaml | sed "s~__ETCD_CLUSTER__~$$etcd_cluster~g" | sed "s/__CLUSTER_PREFIX__/${PREFIX}/g" > $@;
+
 build/prometheus.yaml: prom-config-template.yaml Makefile
 	mkdir -p build
 	felixes="[";\

@@ -16,7 +16,7 @@ write_files:
           },
           "policy": {
               "type": "k8s",
-              "k8s_api_root": "http://smc-kube-scale-master:8080/api/v1/"
+              "k8s_api_root": "http://__CLUSTER_PREFIX__-master:8080/api/v1/"
           }
       }
 
@@ -24,7 +24,7 @@ coreos:
   etcd2:
     proxy: on 
     listen-client-urls: http://127.0.0.1:2379
-    initial-cluster: etcd-00=http://smc-kube-scale-etcd-01:2380,etcd-01=http://smc-kube-scale-etcd-02:2380,etcd-02=http://smc-kube-scale-etcd-03:2380
+    initial-cluster: __ETCD_CLUSTER__
   fleet:
     metadata: "role=node"
     etcd_servers: "http://127.0.0.1:2379"
@@ -36,7 +36,7 @@ coreos:
         - name: "50-insecure-registry.conf"
           content: |
             [Service]
-            Environment=DOCKER_OPTS='--insecure-registry="smc-kube-scale-master:5000"'
+            Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'
     - name: etcd2.service
       command: start
     - name: fleet.service
@@ -54,10 +54,10 @@ coreos:
         User=root
         Environment=ETCD_AUTHORITY=127.0.0.1:2379
         PermissionsStartOnly=true
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin http://smc-kube-scale-master/calicoctl
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin http://__CLUSTER_PREFIX__-master/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
-        ExecStartPre=/usr/bin/docker pull smc-kube-scale-master:5000/calico-node
-        ExecStart=/opt/bin/calicoctl node --node-image=smc-kube-scale-master:5000/calico-node --detach=false
+        ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-node
+        ExecStart=/opt/bin/calicoctl node --node-image=__CLUSTER_PREFIX__-master:5000/calico-node --detach=false
         Restart=always
         RestartSec=10
 
@@ -79,7 +79,7 @@ coreos:
         [Service]
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
-        ExecStartPre=/usr/bin/wget -N -P /tmp http://smc-kube-scale-master/calico-cni.tgz
+        ExecStartPre=/usr/bin/wget -N -P /tmp http://__CLUSTER_PREFIX__-master/calico-cni.tgz
         ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni.tgz
         ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
         ExecStartPre=/usr/bin/ln -sf /opt/calico/calico /opt/cni/bin/calico
@@ -91,7 +91,7 @@ coreos:
         --allow-privileged=true \
         --cluster-dns=10.100.0.10 \
         --cluster-domain=cluster.local \
-        --api-servers=http://smc-kube-scale-master:8080 \
+        --api-servers=http://__CLUSTER_PREFIX__-master:8080 \
         --network-plugin-dir=/etc/cni/net.d \
         --network-plugin=cni \
         --hostname-override=$private_ipv4 \
@@ -113,7 +113,7 @@ coreos:
         ExecStartPre=/usr/bin/wget -N -P /opt/bin  https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kube-proxy
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-proxy
         ExecStart=/opt/bin/kube-proxy \
-        --master=http://smc-kube-scale-master:8080 \
+        --master=http://__CLUSTER_PREFIX__-master:8080 \
         --proxy-mode=iptables \
         --logtostderr=true
         Restart=always
