@@ -1,15 +1,15 @@
 # Cluster parameters go here.
-CLUSTER_PREFIX:=kube-scale
-CLUSTER_SIZE:=2
+CLUSTER_SIZE := 2
 GCE_REGION=us-central1-f
 MASTER_INSTANCE_TYPE=n1-standard-16
 NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
 PROM_INSTANCE_TYPE=n1-standard-4
+PREFIX=kube-scale
 
 # Generate node names.
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
-NODE_NAMES := $(addprefix ${CLUSTER_PREFIX}-,${NODE_NUMBERS})
+NODE_NAMES := $(addprefix ${PREFIX}-,${NODE_NUMBERS})
 
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
@@ -29,11 +29,7 @@ deploy-heapster: remove-heapster
 	kubectl create -f heapster
 
 remove-heapster:
-	-kubectl delete service monitoring-grafana --grace-period=1 --namespace=kube-system
-	-kubectl delete service monitoring-influxdb --grace-period=1 --namespace=kube-system
-	-kubectl delete service heapster --grace-period=1 --namespace=kube-system
-	-kubectl delete rc heapster --grace-period=1 --namespace=kube-system
-	-kubectl delete rc influxdb-grafana --grace-period=1 --namespace=kube-system
+	-kubectl delete -f ./heapster/ --grace-period=1
 
 # Node selectors in the pod specs don't allow negation, so apply a label that can be used as-is here.
 apply-node-labels:
@@ -58,47 +54,40 @@ scale-pinger:
 pull-plugin-timings: ${LOG_RETRIEVAL_TARGETS}
 	grep TIMING timings/cni*.log > timings/all.timings
 	grep -v TIMING timings/cni*.log | grep -v INFO > timings/all.errors
-	-ssh -o LogLevel=quiet core@${CLUSTER_PREFIX}-master.${GCE_REGION}.unique-caldron-775 journalctl --no-pager >timings/master.log
+	-ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 journalctl --no-pager >timings/master.log
 
 ${LOG_RETRIEVAL_TARGETS}: job%:
 	@mkdir -p timings
-	-ssh -o LogLevel=quiet core@${CLUSTER_PREFIX}-master.${GCE_REGION}.unique-caldron-775 \
-	  ssh -o LogLevel=quiet \
-	      -o StrictHostKeyChecking=no \
-	      ${CLUSTER_PREFIX}-$* \
-	      cat /var/log/calico/cni/cni.log > timings/cni-$*.log
-	-ssh -o LogLevel=quiet core@${CLUSTER_PREFIX}-master.${GCE_REGION}.unique-caldron-775 \
-	     ssh -o LogLevel=quiet \
-	         -o StrictHostKeyChecking=no \
-	         ${CLUSTER_PREFIX}-$* \
-	         journalctl --no-pager > timings/journal-$*.log
+	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* sudo tar -cvzf - /var/log/calico > timings/logs-$*.tgz
+	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log
+	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* journalctl --no-pager > timings/journal-$*.log
 
 .PHONEY: ${LOG_RETRIEVAL_TARGETS}
 
 gce-create: kubectl calicoctl
-	gcloud compute instances create \
-	  ${CLUSTER_PREFIX}-master \
-	  --zone ${GCE_REGION} \
-        --image-project coreos-cloud \
-	  --image coreos-alpha-1010-1-0-v20160407 \
-	  --machine-type ${MASTER_INSTANCE_TYPE} \
-	  --local-ssd interface=scsi \
-	  --metadata-from-file user-data=master-config-template.yaml
+	-gcloud compute instances create \
+  	${PREFIX}-master \
+  	--zone ${GCE_REGION} \
+  	--image-project coreos-cloud \
+  	--image coreos-alpha-1010-1-0-v20160407 \
+  	--machine-type ${MASTER_INSTANCE_TYPE} \
+  	--local-ssd interface=scsi \
+  	--metadata-from-file user-data=master-config-template.yaml
 
 	make --no-print-directory gce-create-etcd
 
 	gcloud compute instances create \
-	  ${NODE_NAMES} \
-	  --image-project coreos-cloud \
-        --zone ${GCE_REGION} \
-	  --image coreos-alpha-1010-1-0-v20160407 \
-	  --machine-type ${NODE_INSTANCE_TYPE} \
-	  --metadata-from-file user-data=node-config-template.yaml \
-	  --no-address \
-	  --tags no-ip
+  	${NODE_NAMES} \
+  	--zone ${GCE_REGION} \
+  	--image-project coreos-cloud \
+  	--image coreos-alpha-1010-1-0-v20160407 \
+  	--machine-type ${NODE_INSTANCE_TYPE} \
+  	--metadata-from-file user-data=node-config-template.yaml \
+	--no-address \
+	--tags no-ip
 
 	gcloud compute instances create \
-	  ${CLUSTER_PREFIX}-prom \
+	  ${PREFIX}-prom \
 	  --image-project coreos-cloud \
 	  --zone ${GCE_REGION} \
 	  --image coreos-alpha-1010-1-0-v20160407 \
@@ -113,60 +102,60 @@ gce-create: kubectl calicoctl
 
 gce-create-etcd:
 	gcloud compute instances create \
-	  ${CLUSTER_PREFIX}-etcd-01 \
-        --zone ${GCE_REGION} \
-	  --image-project coreos-cloud \
-	  --image coreos-alpha-1010-1-0-v20160407 \
-	  --machine-type ${ETCD_INSTANCE_TYPE} \
-	  --local-ssd interface=scsi \
-	  --no-address \
-	  --metadata-from-file user-data=etcd-config-01.yaml &
+  	${PREFIX}-etcd-01 \
+  	--zone ${GCE_REGION} \
+  	--image-project coreos-cloud \
+  	--image coreos-alpha-1010-1-0-v20160407 \
+  	--machine-type ${ETCD_INSTANCE_TYPE} \
+  	--local-ssd interface=scsi \
+  	--no-address \
+  	--metadata-from-file user-data=etcd-config-01.yaml &
 
 	gcloud compute instances create \
-	  ${CLUSTER_PREFIX}-etcd-02 \
-        --zone ${GCE_REGION} \
-	  --image-project coreos-cloud \
-	  --image coreos-alpha-1010-1-0-v20160407 \
-	  --machine-type ${ETCD_INSTANCE_TYPE} \
-	  --local-ssd interface=scsi \
-	  --no-address \
-	  --metadata-from-file user-data=etcd-config-02.yaml &
+  	${PREFIX}-etcd-02 \
+  	--zone ${GCE_REGION} \
+  	--image-project coreos-cloud \
+  	--image coreos-alpha-1010-1-0-v20160407 \
+  	--machine-type ${ETCD_INSTANCE_TYPE} \
+  	--local-ssd interface=scsi \
+  	--no-address \
+  	--metadata-from-file user-data=etcd-config-02.yaml &
 
 	gcloud compute instances create \
-	  ${CLUSTER_PREFIX}-etcd-03 \
-        --zone ${GCE_REGION} \
-	  --image-project coreos-cloud \
-	  --image coreos-alpha-1010-1-0-v20160407 \
-	  --machine-type ${ETCD_INSTANCE_TYPE} \
-	  --local-ssd interface=scsi \
-	  --no-address \
-	  --metadata-from-file user-data=etcd-config-03.yaml
+  	${PREFIX}-etcd-03 \
+  	--zone ${GCE_REGION} \
+  	--image-project coreos-cloud \
+  	--image coreos-alpha-1010-1-0-v20160407 \
+  	--machine-type ${ETCD_INSTANCE_TYPE} \
+  	--local-ssd interface=scsi \
+  	--no-address \
+  	--metadata-from-file user-data=etcd-config-03.yaml
 
 
 gce-cleanup:
-	gcloud compute instances list -r '${CLUSTER_PREFIX}.*' |tail -n +2 |cut -f1 -d' ' |xargs gcloud compute instances delete --zone=${GCE_REGION}
+	gcloud compute instances list --zones ${GCE_REGION} -r '${PREFIX}.*' |tail -n +2 |cut -f1 -d' ' |xargs gcloud compute instances delete --zone ${GCE_REGION}
 
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
-	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no core@${CLUSTER_PREFIX}-master.${GCE_REGION}.unique-caldron-775 date; do echo "Trying to forward ports"; sleep 1; done'
-	ssh -o PasswordAuthentication=no -L 8080:localhost:8080 -L 2379:localhost:2379 -L 4194:localhost:4194 -L 9090:${CLUSTER_PREFIX}-prom:9090 -o LogLevel=quiet -nNT core@${CLUSTER_PREFIX}-master.${GCE_REGION}.unique-caldron-775 &
+	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 date; do echo "Trying to forward ports"; sleep 1; done'
+	ssh -o PasswordAuthentication=no -L 8080:localhost:8080 -L 2379:localhost:2379 -L 4194:localhost:4194 -L 9090:${PREFIX}-prom:9090 -o LogLevel=quiet -nNT core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 &
 
 gce-redeploy:
-	gcloud compute instances add-metadata ${CLUSTER_PREFIX}-master --metadata-from-file=user-data=master-config-template.yaml
+	gcloud compute instances add-metadata ${PREFIX}-master --metadata-from-file=user-data=master-config-template.yaml
 	gcloud compute instances add-metadata ${NODE_NAMES} --metadata-from-file=user-data=node-config-template.yaml
-#	gcloud compute ssh ${CLUSTER_PREFIX}-master sudo reboot
+#	gcloud compute ssh ${PREFIX}-master sudo reboot
 
 gce-config-ssh:
 	gcloud compute config-ssh
 
 gce-ssh-master:
-	ssh core@${CLUSTER_PREFIX}-master.${GCE_REGION}.unique-caldron-775
+	ssh core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775
 
 gce-bgp-status:
-	ssh core@${CLUSTER_PREFIX}-master.${GCE_REGION}.unique-caldron-775 /opt/bin/calicoctl status
+	ssh core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 /opt/bin/calicoctl status
 
 gce-bgp-status-count:
-	ssh core@${CLUSTER_PREFIX}-master.${GCE_REGION}.unique-caldron-775 /opt/bin/calicoctl status |grep -c Established
+	ssh core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 /opt/bin/calicoctl status |grep -c Established
 
 gce-list-nodes:
 	kubectl get no --no-headers -l 'kubernetes.io/hostname!=127.0.0.1'

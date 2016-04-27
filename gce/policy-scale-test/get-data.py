@@ -6,9 +6,15 @@ import subprocess
 import re
 import Queue
 import datetime
+import time
 import threading
 from dateutil import parser
 from subprocess import check_output
+
+SAVE_GRAPHS = True
+DISPLAY_GRAPHS = False
+
+filename_prefix = time.strftime("%Y%m%d-%H%M%S")
 
 # Various regexes.
 queue_time_re = re.compile("INFO \('default', '(.*)'\) time on the queue: ([0-9\.]+)")
@@ -42,7 +48,6 @@ def collect_data():
                              "pods", "--namespace=calico-system",
                              "-o", "json"])
     all_pods = json.loads(all_pods)["items"]
-    pod = all_pods[0]
 
     # Get calico-k8s-policy-agent pod metadata.
     pod_name = str(all_pods[0]["metadata"]["name"])
@@ -51,6 +56,7 @@ def collect_data():
     print "Getting calico policy agent logs"
     calico_logs = check_output(["kubectl", "logs", "--namespace=calico-system",
                                  pod_name, "-c", "k8s-policy-agent"])
+    write_data("calico-system", all_pods)
 
     # Extract queue / total processing times from the logs.
     queue_times = queue_time_re.findall(calico_logs)
@@ -188,9 +194,11 @@ def display_data():
     pylab.hist(vals)
     pylab.xlabel('time to first connectivity')
     pylab.ylabel('Number of pods')
-    #pylab.show()
-    pylab.savefig('ttfp_relative.png', bbox_inches='tight')
-
+    if SAVE_GRAPHS:
+        pylab.savefig('testdata/%s_ttfp_relative.png' % filename_prefix,
+                      bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
     # Calculate start times, shifted to account
     # for the first pod to start.
@@ -216,16 +224,22 @@ def display_data():
     pylab.plot(x, elapsed_times, 'bo')
     pylab.xlabel('time(s)')
     pylab.ylabel('Time to first connectivity (s)')
-    #pylab.show()
-    pylab.savefig('ttfp_absolute.png', bbox_inches='tight')
+    if SAVE_GRAPHS:
+        pylab.savefig('testdata/%s_ttfp_absolute.png' % filename_prefix,
+                      bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
     if agent_process_times:
         # Plot agent process time versus pod started time.
         pylab.plot(x, agent_process_times, "ro")
         pylab.xlabel('pod start time')
         pylab.ylabel('Time spent in agent')
-        pylab.savefig('agent_time.png', bbox_inches='tight')
-        #pylab.show()
+    if SAVE_GRAPHS:
+        pylab.savefig('testdata/%s_agent_time.png' % filename_prefix,
+                      bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
     # Plot queue length over time, compared with total
     # API events and agent CPU usage.
@@ -241,15 +255,26 @@ def display_data():
 
     pylab.xlabel('time')
     pylab.ylabel('Agent Queue Length')
-    pylab.savefig('agent_q_length.png', bbox_inches='tight')
-    #pylab.show()
+    if SAVE_GRAPHS:
+        pylab.savefig('testdata/%s_agent_q_length.png' % filename_prefix,
+                      bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
-def write_data():
+
+def write_data(filename, data):
     # Write to file.
-    filename = "%s-pods-%s" % (len(elapsed_times), datetime.datetime.now())
-    print "Writing results to file: %s" % filename
+    filename = "%s_%s" % (filename_prefix, filename)
+    print "Writing to file: %s" % filename
     with open("testdata/%s" % filename, "a") as f:
-        f.write(json.dumps(data_by_pod))
+        f.write(json.dumps(data))
+
+def get_diags():
+    #ssh core@kube-scale-master.us-central1-f.unique-caldron-775
+    #sudo tar zch --ignore-failed-read -C /var/log/calico felix >
+    ## $TARGET/felix.tar.gz
+    #journalctl -b | gzip -c > $TARGET/journal.gz
+    pass
 
 if __name__ == "__main__":
     collect_data()
