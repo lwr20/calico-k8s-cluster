@@ -139,7 +139,7 @@ build/prometheus.yaml: prom-config-template.yaml Makefile
 	done;\
 	echo "Felixes $${felixes}"; \
 	echo "Drivers $${drivers}"; \
-	cat prom-config-template.yaml | sed "s~__FELIXES__~$$felixes]~g" | sed "s/__DRIVERS__/$$drivers]/g" > $@;
+	cat prom-config-template.yaml | sed "s~__FELIXES__~$$felixes]~g" | sed "s/__DRIVERS__/$$drivers]/g" | sed "s/__CLUSTER_PREFIX__/${PREFIX}/g" > $@;
 
 gce-create-etcd: ${ETCD_CONFIG_FILENAMES} Makefile
 	for ii in ${ETCD_NODE_NUMBERS}; do \

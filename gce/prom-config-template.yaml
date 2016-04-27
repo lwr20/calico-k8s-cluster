@@ -29,7 +29,7 @@ coreos:
         - name: "50-insecure-registry.conf"
           content: |
             [Service]
-            Environment=DOCKER_OPTS='--insecure-registry="smc-kube-scale-master:5000"'
+            Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'
     - name: fleet.service
       command: start
     - name: prom.service
