@@ -68,7 +68,7 @@ ${LOG_RETRIEVAL_TARGETS}: job%:
 
 .PHONEY: ${LOG_RETRIEVAL_TARGETS}
 
-gce-create: kubectl calicoctl build/prometheus.yaml
+gce-create: kubectl calicoctl build/prometheus.yaml build/master.yaml
 	-gcloud compute instances create \
   	${PREFIX}-master \
   	--zone ${GCE_REGION} \
@@ -104,7 +104,7 @@ gce-create: kubectl calicoctl build/prometheus.yaml
 	make --no-print-directory gce-forward-ports
 	#make --no-print-directory apply-node-labels
 
-build/etcd-%: etcd-template.yaml
+build/etcd-%: etcd-template.yaml Makefile
 	mkdir -p build
 	etcd_peers="";\
 	delim="";\
@@ -115,6 +115,17 @@ build/etcd-%: etcd-template.yaml
 	echo "Etcd peers $${etcd_peers}"; \
 	node_name=`basename $@`; \
 	cat etcd-template.yaml | sed "s~__ETCD_PEERS__~$$etcd_peers~g" | sed "s/__ETCD_NODE_NAME__/$$node_name/g" > $@;
+
+build/master.yaml: master-config-template.yaml Makefile
+	mkdir -p build
+	etcd_peers="";\
+	delim="";\
+	for ii in ${ETCD_NODE_NUMBERS}; do \
+	  etcd_peers=$$etcd_peers$${delim}http://${PREFIX}-etcd-$$ii:2379; \
+	  delim=","; \
+	done;\
+	echo "Etcd peers $${etcd_peers}"; \
+	cat master-config-template.yaml | sed "s~__ETCD_PEERS__~$$etcd_peers~g" | sed "s/__CLUSTER_PREFIX__/${PREFIX}/g" > $@;
 
 build/prometheus.yaml: prom-config-template.yaml Makefile
 	mkdir -p build
