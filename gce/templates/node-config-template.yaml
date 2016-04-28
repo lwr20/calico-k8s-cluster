@@ -24,7 +24,7 @@ coreos:
   etcd2:
     proxy: on 
     listen-client-urls: http://127.0.0.1:2379
-    initial-cluster: __ETCD_CLUSTER__
+    initial-cluster: __ETCD_PEER_URLS__
   fleet:
     metadata: "role=node"
     etcd_servers: "http://127.0.0.1:2379"

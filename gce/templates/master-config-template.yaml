@@ -18,7 +18,7 @@ write_files:
       {
           "name": "calico-k8s-network",
           "type": "calico",
-          "etcd_endpoints": "__ETCD_PEERS__",
+          "etcd_endpoints": "__ETCD_ENDPOINTS__",
           "log_level": "info",
           "ipam": {
               "type": "calico-ipam"
@@ -65,7 +65,7 @@ write_files:
             env:
               # Modify ETCD_ENDPOINTS to match your etcd cluster.
               - name: ETCD_ENDPOINTS
-                value: "__ETCD_PEERS__"
+                value: "__ETCD_ENDPOINTS__"
               - name: K8S_API
                 value: "http://127.0.0.1:8080"
               - name: LEADER_ELECTION 
@@ -229,7 +229,7 @@ coreos:
         
         [Service]
         User=root
-        Environment=ETCD_ENDPOINTS=__ETCD_PEERS__
+        Environment=ETCD_ENDPOINTS=__ETCD_ENDPOINTS__
         PermissionsStartOnly=true
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
@@ -357,8 +357,8 @@ coreos:
         ExecStartPre=-/usr/bin/docker kill registry
         ExecStartPre=-/usr/bin/docker rm registry
         ExecStartPre=-/usr/bin/docker pull registry:2
-        ExecStartPre=-/usr/bin/docker pull fasaxc/calico-node:latest
-        ExecStartPre=-/usr/bin/docker tag fasaxc/calico-node:latest __CLUSTER_PREFIX__-master:5000/calico-node
+        ExecStartPre=-/usr/bin/docker pull __NODE_IMAGE__
+        ExecStartPre=-/usr/bin/docker tag __NODE_IMAGE__ __CLUSTER_PREFIX__-master:5000/calico-node
         ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
         ExecStartPost=/bin/sleep 5
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/calico-node

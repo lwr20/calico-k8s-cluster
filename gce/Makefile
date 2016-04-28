@@ -2,48 +2,61 @@
 CLUSTER_SIZE := 2
 ETCD_CLUSTER_SIZE := 3
 GCE_REGION=us-central1-f
+GCE_PROJECT=unique-caldron-775
 MASTER_INSTANCE_TYPE=n1-standard-16
 NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
 PROM_INSTANCE_TYPE=n1-standard-4
 PREFIX=smc-kube-scale
+NODE_IMAGE=fasaxc/calico-node:latest
 
 # Generate node names.
-NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${CLUSTER_SIZE})
-NODE_NAMES := $(addprefix ${PREFIX}-,${NODE_NUMBERS})
-ETCD_NODE_NUMBERS := $(shell seq -f '%02.0f' 1 ${ETCD_CLUSTER_SIZE})
-ETCD_NODE_NAMES := $(addprefix ${PREFIX}-etcd-,${ETCD_NODE_NUMBERS})
-ETCD_CONFIG_FILENAMES := $(addprefix build/etcd-,${ETCD_NODE_NUMBERS})
+NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
+NODE_NAMES := $(addprefix $(PREFIX)-,$(NODE_NUMBERS))
+ETCD_NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(ETCD_CLUSTER_SIZE))
+ETCD_NODE_NAMES := $(addprefix $(PREFIX)-etcd-,$(ETCD_NODE_NUMBERS))
+ETCD_CONFIG_FILENAMES := $(addprefix build/etcd-,$(ETCD_NODE_NUMBERS))
+
+# Figure out what files need templating.
+INPUT_TEMPLATES := $(shell find templates/ -type f)
+TEMPLATED_OUTPUT := $(patsubst templates/%, build/%, $(INPUT_TEMPLATES))
+
+# Calculate template substitutions.
+ETCD_PEER_URLS := $(shell python -c 'print ",".join(["etcd-%02d=http://$(PREFIX)-etcd-%02d:2380" % (i, i) for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
+ETCD_CLIENT_URLS := $(shell python -c 'print ",".join(["etcd-%02d=http://$(PREFIX)-etcd-%02d:2379" % (i, i) for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
+ETCD_ENDPOINTS := $(shell python -c 'print ",".join(["http://$(PREFIX)-etcd-%02d.c.$(GCE_PROJECT).internal:2379" % i for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
+PROM_FELIX_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9091" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
+PROM_DRIVER_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9092" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
 
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
 
-LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
+LOG_RETRIEVAL_TARGETS := $(addprefix job,$(NODE_NUMBERS))
 PODS := 10000
 
 kubectl:
-	wget http://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/${OS}/amd64/kubectl
+	wget http://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/$(OS)/amd64/kubectl
 	chmod +x kubectl
 
 calicoctl:
 	wget http://www.projectcalico.org/builds/calicoctl
 	chmod +x calicoctl
 
-deploy-heapster: remove-heapster
-	kubectl create -f heapster
+deploy-heapster: remove-heapster $(TEMPLATED_OUTPUT)
+	kubectl create -f build/heapster
 
 remove-heapster:
-	-kubectl delete -f ./heapster/ --grace-period=1
+	-kubectl delete -f build/heapster/ --grace-period=1
 
 # Node selectors in the pod specs don't allow negation, so apply a label that can be used as-is here.
 apply-node-labels:
-	bash -c 'while [ $$(kubectl get no |grep role=node -c) -ne ${CLUSTER_SIZE} ] ;  do kubectl label --overwrite=true nodes -l kubernetes.io/hostname!=127.0.0.1 role=node; done'
+	bash -c 'while [ $$(kubectl get no |grep role=node -c) -ne $(CLUSTER_SIZE) ] ;  do kubectl label --overwrite=true nodes -l kubernetes.io/hostname!=127.0.0.1 role=node; done'
 	kubectl get no
 	@echo "Number of labeled nodes: "
 	@make --no-print-directory gce-list-nodes-count
 
-deploy-pinger: remove-pinger
-	kubectl create -f pinger
+deploy-pinger: remove-pinger $(TEMPLATED_OUTPUT)
+	kubectl create -f build/pinger
 	kubectl get rc
 	kubectl get po
 
@@ -55,48 +68,51 @@ scale-pinger:
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 CLUSTER_SIZE=26 pull-plugin-timings
-pull-plugin-timings: ${LOG_RETRIEVAL_TARGETS}
+pull-plugin-timings: $(LOG_RETRIEVAL_TARGETS)
 	grep TIMING timings/cni*.log > timings/all.timings
 	grep -v TIMING timings/cni*.log | grep -v INFO > timings/all.errors
-	-ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 journalctl --no-pager >timings/master.log
+	-ssh -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) journalctl --no-pager >timings/master.log
 
-${LOG_RETRIEVAL_TARGETS}: job%:
+$(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
-	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* sudo tar -cvzf - /var/log/calico > timings/logs-$*.tgz
-	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log
-	-ssh -A -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 ssh -o LogLevel=quiet -o StrictHostKeyChecking=no ${PREFIX}-$* journalctl --no-pager > timings/journal-$*.log
+	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo tar -cvzf - /var/log/calico > timings/logs-$*.tgz
+	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log
+	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log
 
-.PHONEY: ${LOG_RETRIEVAL_TARGETS}
+.PHONEY: $(LOG_RETRIEVAL_TARGETS)
 
-gce-create: kubectl calicoctl build/prometheus.yaml build/master.yaml
+.PHONEY: render-templates
+render-templates: $(TEMPLATED_OUTPUT)
+
+gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	-gcloud compute instances create \
-  	${PREFIX}-master \
-  	--zone ${GCE_REGION} \
-  	--image-project coreos-cloud \
-  	--image coreos-alpha-1010-1-0-v20160407 \
-  	--machine-type ${MASTER_INSTANCE_TYPE} \
-  	--local-ssd interface=scsi \
-  	--metadata-from-file user-data=master-config-template.yaml
+	  $(PREFIX)-master \
+	  --zone $(GCE_REGION) \
+	  --image-project coreos-cloud \
+	  --image coreos-alpha-1010-1-0-v20160407 \
+	  --machine-type $(MASTER_INSTANCE_TYPE) \
+	  --local-ssd interface=scsi \
+	  --metadata-from-file user-data=build/master-config-template.yaml
 
 	make --no-print-directory gce-create-etcd
 
 	gcloud compute instances create \
-  	${NODE_NAMES} \
-  	--zone ${GCE_REGION} \
-  	--image-project coreos-cloud \
-  	--image coreos-alpha-1010-1-0-v20160407 \
-  	--machine-type ${NODE_INSTANCE_TYPE} \
-  	--metadata-from-file user-data=node-config-template.yaml \
+	  $(NODE_NAMES) \
+	  --zone $(GCE_REGION) \
+	  --image-project coreos-cloud \
+	  --image coreos-alpha-1010-1-0-v20160407 \
+	  --machine-type $(NODE_INSTANCE_TYPE) \
+	  --metadata-from-file user-data=build/node-config-template.yaml \
 	--no-address \
 	--tags no-ip
 
 	gcloud compute instances create \
-	  ${PREFIX}-prom \
+	  $(PREFIX)-prom \
 	  --image-project coreos-cloud \
-	  --zone ${GCE_REGION} \
+	  --zone $(GCE_REGION) \
 	  --image coreos-alpha-1010-1-0-v20160407 \
-	  --machine-type ${PROM_INSTANCE_TYPE} \
-	  --metadata-from-file user-data=build/prometheus.yaml \
+	  --machine-type $(PROM_INSTANCE_TYPE) \
+	  --metadata-from-file user-data=build/prom-config-template.yaml \
 	  --no-address \
 	  --tags no-ip
 
@@ -104,95 +120,63 @@ gce-create: kubectl calicoctl build/prometheus.yaml build/master.yaml
 	make --no-print-directory gce-forward-ports
 	#make --no-print-directory apply-node-labels
 
-build/etcd-%: etcd-template.yaml Makefile
-	mkdir -p build
-	etcd_peers="";\
-	delim="";\
-	for ii in ${ETCD_NODE_NUMBERS}; do \
-	  etcd_peers=$$etcd_peers$${delim}etcd-$$ii=http://${PREFIX}-etcd-$$ii:2380; \
-	  delim=","; \
-	done;\
-	echo "Etcd peers $${etcd_peers}"; \
+build/%: templates/% Makefile
+	mkdir -p "$(@D)"
+	cat "$<" | \
+	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
+	  sed "s~__ETCD_CLIENT_URLS__~$(ETCD_CLIENT_URLS)~g" | \
+	  sed "s~__ETCD_ENDPOINTS__~$(ETCD_ENDPOINTS)~g"  | \
+	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
+	  sed "s~__FELIXES__~$(PROM_FELIX_ENDPOINTS)~g" | \
+	  sed "s~__DRIVERS__~$(PROM_DRIVER_ENDPOINTS)~g" | \
+	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" > $@;
+
+build/etcd-%: build/etcd-template.yaml
 	node_name=`basename $@`; \
-	cat etcd-template.yaml | sed "s~__ETCD_PEERS__~$$etcd_peers~g" | sed "s/__ETCD_NODE_NAME__/$$node_name/g" > $@;
+	  cat build/etcd-template.yaml | \
+	    sed "s/__ETCD_NODE_NAME__/$$node_name/g" > $@;
 
-build/master.yaml: master-config-template.yaml Makefile
-	mkdir -p build
-	etcd_peers="";\
-	delim="";\
+gce-create-etcd: $(ETCD_CONFIG_FILENAMES)
 	for ii in ${ETCD_NODE_NUMBERS}; do \
-	  etcd_peers=$$etcd_peers$${delim}http://${PREFIX}-etcd-$$ii:2379; \
-	  delim=","; \
-	done;\
-	echo "Etcd peers $${etcd_peers}"; \
-	cat master-config-template.yaml | sed "s~__ETCD_PEERS__~$$etcd_peers~g" | sed "s/__CLUSTER_PREFIX__/${PREFIX}/g" > $@;
-
-build/node.yaml: node-config-template.yaml Makefile
-	mkdir -p build
-	etcd_cluster="";\
-	delim="";\
-	for ii in ${ETCD_NODE_NUMBERS}; do \
-	  etcd_cluster=$$etcd_cluster$${delim}etcd-$$ii=http://${PREFIX}-etcd-$$ii:2380; \
-	  delim=","; \
-	done;\
-	echo "Etcd peers $${etcd_cluster}"; \
-	cat node-config-template.yaml | sed "s~__ETCD_CLUSTER__~$$etcd_cluster~g" | sed "s/__CLUSTER_PREFIX__/${PREFIX}/g" > $@;
-
-build/prometheus.yaml: prom-config-template.yaml Makefile
-	mkdir -p build
-	felixes="[";\
-	drivers="[";\
-	delim="";\
-	for ii in ${NODE_NAMES}; do \
-	  felixes="$$felixes$$delim'$$ii:9091'"; \
-	  drivers="$$drivers$$delim'$$ii:9092'"; \
-	  delim=", "; \
-	done;\
-	echo "Felixes $${felixes}"; \
-	echo "Drivers $${drivers}"; \
-	cat prom-config-template.yaml | sed "s~__FELIXES__~$$felixes]~g" | sed "s/__DRIVERS__/$$drivers]/g" | sed "s/__CLUSTER_PREFIX__/${PREFIX}/g" > $@;
-
-gce-create-etcd: ${ETCD_CONFIG_FILENAMES} Makefile
-	for ii in ${ETCD_NODE_NUMBERS}; do \
-	  echo "Starting ${PREFIX}-etcd-$$ii"; \
+	  echo "Starting $(PREFIX)-etcd-$$ii"; \
 	  gcloud compute instances create \
-        ${PREFIX}-etcd-$$ii \
-        --zone ${GCE_REGION} \
-        --image-project coreos-cloud \
-        --image coreos-alpha-1010-1-0-v20160407 \
-        --machine-type ${ETCD_INSTANCE_TYPE} \
-        --local-ssd interface=scsi \
-        --no-address \
-        --metadata-from-file user-data=build/etcd-$$ii & \
+	    $(PREFIX)-etcd-$$ii \
+	    --zone $(GCE_REGION) \
+	    --image-project coreos-cloud \
+	    --image coreos-alpha-1010-1-0-v20160407 \
+	    --machine-type $(ETCD_INSTANCE_TYPE) \
+	    --local-ssd interface=scsi \
+	    --no-address \
+	    --metadata-from-file user-data=build/etcd-$$ii & \
 	done; \
 	echo "Waiting for creation of etcd nodes to finish..."; \
 	wait; \
 	echo "etcd nodes started."
 
 gce-cleanup:
-	gcloud compute instances list --zones ${GCE_REGION} -r '${PREFIX}.*' |tail -n +2 |cut -f1 -d' ' |xargs gcloud compute instances delete --zone ${GCE_REGION}
+	gcloud compute instances list --zones $(GCE_REGION) -r '$(PREFIX).*' |tail -n +2 |cut -f1 -d' ' |xargs gcloud compute instances delete --zone $(GCE_REGION)
 
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
-	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 date; do echo "Trying to forward ports"; sleep 1; done'
-	ssh -o PasswordAuthentication=no -L 8080:localhost:8080 -L 2379:localhost:2379 -L 4194:localhost:4194 -L 9090:${PREFIX}-prom:9090 -o LogLevel=quiet -nNT core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 &
+	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) date; do echo "Trying to forward ports"; sleep 1; done'
+	ssh -o PasswordAuthentication=no -L 8080:localhost:8080 -L 2379:localhost:2379 -L 4194:localhost:4194 -L 9090:$(PREFIX)-prom:9090 -o LogLevel=quiet -nNT core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) &
 
-gce-redeploy:
-	gcloud compute instances add-metadata ${PREFIX}-master --metadata-from-file=user-data=master-config-template.yaml
-	gcloud compute instances add-metadata ${NODE_NAMES} --metadata-from-file=user-data=node-config-template.yaml
-#	gcloud compute ssh ${PREFIX}-master sudo reboot
+gce-redeploy: build/master-config-template.yaml build/node-config-template.yaml
+	gcloud compute instances add-metadata $(PREFIX)-master --metadata-from-file=user-data=build/master-config-template.yaml
+	gcloud compute instances add-metadata $(NODE_NAMES) --metadata-from-file=user-data=build/node-config-template.yaml
+#	gcloud compute ssh $(PREFIX)-master sudo reboot
 
 gce-config-ssh:
 	gcloud compute config-ssh
 
 gce-ssh-master:
-	ssh core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775
+	ssh core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT)
 
 gce-bgp-status:
-	ssh core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 /opt/bin/calicoctl status
+	ssh core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) /opt/bin/calicoctl status
 
 gce-bgp-status-count:
-	ssh core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 /opt/bin/calicoctl status |grep -c Established
+	ssh core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) /opt/bin/calicoctl status |grep -c Established
 
 gce-list-nodes:
 	kubectl get no --no-headers -l 'kubernetes.io/hostname!=127.0.0.1'
@@ -207,6 +191,6 @@ gce-failed-pods:
 	kubectl get po |grep -v Pending |grep -v Running
 
 gce-wait-for-pod-creation:
-	bash -c 'while [ $$(kubectl get po | grep -P -c "1/1\s+Running\s+0") -ne ${PODS} ] ;  do date; echo "Not enough nodes created - waiting"; kubectl describe rc |grep "Pods Status"; sleep 1;done'
+	bash -c 'while [ $$(kubectl get po | grep -P -c "1/1\s+Running\s+0") -ne $(PODS) ] ;  do date; echo "Not enough nodes created - waiting"; kubectl describe rc |grep "Pods Status"; sleep 1;done'
 
 

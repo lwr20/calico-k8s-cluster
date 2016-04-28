@@ -15,7 +15,7 @@ coreos:
     reboot-strategy: off
   etcd2:
     name: __ETCD_NODE_NAME__
-    initial-cluster: __ETCD_PEERS__
+    initial-cluster: __ETCD_PEER_URLS__
     initial-cluster-state: new
     initial-cluster-token: etcd-cluster-1
     advertise-client-urls: http://$private_ipv4:2379
