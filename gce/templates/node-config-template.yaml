@@ -118,3 +118,15 @@ coreos:
         --logtostderr=true
         Restart=always
         RestartSec=10
+
+    - name: node-exporter.service
+      command: start
+      content: |
+        [Unit]
+        Description=Prometheus node statistis exporter
+        After=docker.service
+        Requires=docker.service
+        [Service]
+        ExecStart=/usr/bin/docker run -d -p 9100:9100 --net="host" prom/node-exporter
+        Restart=always
+        RestartSec=10

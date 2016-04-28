@@ -32,6 +32,7 @@ ETCD_CLIENT_URLS := $(shell python -c 'print ",".join(["etcd-%02d=http://$(PREFI
 ETCD_ENDPOINTS := $(shell python -c 'print ",".join(["http://$(PREFIX)-etcd-%02d.c.$(GCE_PROJECT).internal:2379" % i for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 PROM_FELIX_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9091" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
 PROM_DRIVER_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9092" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
+PROM_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9100" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
 
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
@@ -154,6 +155,7 @@ build/%: templates/% Makefile .calico-cni-url
 	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
 	  sed "s~__FELIXES__~$(PROM_FELIX_ENDPOINTS)~g" | \
 	  sed "s~__DRIVERS__~$(PROM_DRIVER_ENDPOINTS)~g" | \
+	  sed "s~__PROM_HOSTS__~$(PROM_HOST_ENDPOINTS)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g"  | \
 	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" > $@;
 

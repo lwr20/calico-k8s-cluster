@@ -11,10 +11,17 @@ write_files:
         scrape_interval: 10s
         target_groups:
         - targets: __FELIXES__
+        - targets: ["__CLUSTER_PREFIX__-master:9091"]
       - job_name: etcd-driver
         scrape_interval: 10s
         target_groups:
         - targets: __DRIVERS__
+        - targets: ["__CLUSTER_PREFIX__-master:9092"]
+      - job_name: host
+        scrape_interval: 10s
+        target_groups:
+        - targets: __PROM_HOSTS__
+        - targets: ["__CLUSTER_PREFIX__-master:9100"]
 
 coreos:
 
