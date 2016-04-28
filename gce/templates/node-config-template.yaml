@@ -19,7 +19,13 @@ write_files:
               "k8s_api_root": "http://__CLUSTER_PREFIX__-master:8080/api/v1/"
           }
       }
-
+  - path: /etc/resolv.conf
+    owner: root
+    permissions: 0755
+    content: |
+      # nameserver 10.100.0.10
+      nameserver 169.254.169.254
+      search default.svc.cluster.local svc.cluster.local cluster.local c.unique-caldron-775.internal
 coreos:
   etcd2:
     proxy: on 
