@@ -7,7 +7,7 @@ MASTER_INSTANCE_TYPE=n1-standard-16
 NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
 PROM_INSTANCE_TYPE=n1-standard-4
-PREFIX=smc-kube-scale
+PREFIX=lr2-kube-scale
 NODE_IMAGE=calico/node:v0.19.0
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".
@@ -19,7 +19,8 @@ PACKED_CNI_PLUGIN_URL=https://circle-artifacts.com/gh/projectcalico/calico-cni/1
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
 NODE_NAMES := $(addprefix $(PREFIX)-,$(NODE_NUMBERS))
 ETCD_NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(ETCD_CLUSTER_SIZE))
-ETCD_NODE_NAMES := $(addprefix $(PREFIX)-etcd-,$(ETCD_NODE_NUMBERS))
+ETCD_NODE_SUFFIXES := $(addprefix etcd-,$(ETCD_NODE_NUMBERS))
+ETCD_NODE_NAMES := $(addprefix $(PREFIX)-,$(ETCD_NODE_SUFFIXES))
 ETCD_CONFIG_FILENAMES := $(addprefix build/etcd-,$(ETCD_NODE_NUMBERS))
 
 # Figure out what files need templating.
@@ -38,7 +39,7 @@ PROM_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9100" % n f
 OS := $(shell uname -s | tr A-Z a-z)
 
 # Add on the etcd nodes and master
-NODE_NUMBERS += etcd-01 etcd-02 etcd-03 master
+NODE_NUMBERS += $(ETCD_NODE_SUFFIXES) master
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
 PODS := 10000
 
@@ -224,5 +225,3 @@ gce-failed-pods:
 
 gce-wait-for-pod-creation:
 	bash -c 'while [ $$(kubectl get po | grep -P -c "1/1\s+Running\s+0") -ne $(PODS) ] ;  do date; echo "Not enough nodes created - waiting"; kubectl describe rc |grep "Pods Status"; sleep 1;done'
-
-
