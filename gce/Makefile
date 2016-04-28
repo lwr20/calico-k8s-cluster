@@ -9,6 +9,11 @@ ETCD_INSTANCE_TYPE=n1-standard-16
 PROM_INSTANCE_TYPE=n1-standard-4
 PREFIX=smc-kube-scale
 NODE_IMAGE=fasaxc/calico-node:latest
+# Whether to use the unpacked CNI plugin (rather than the one-file, packed
+# version).  "y" or "n".
+USE_UNPACKED_CNI_PLUGIN=n
+UNPACKED_CNI_PLUGIN_URL=https://transfer.sh/bw4hX/calico-cni.tgz
+PACKED_CNI_PLUGIN_URL=https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico
 
 # Generate node names.
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
@@ -84,6 +89,26 @@ $(LOG_RETRIEVAL_TARGETS): job%:
 .PHONEY: render-templates
 render-templates: $(TEMPLATED_OUTPUT)
 
+build/calico/calico:
+	mkdir -p build/calico
+	wget $(PACKED_CNI_PLUGIN_URL) -O build/calico/calico
+	chmod +x build/calico/calico
+
+build/calico-cni-unpacked.tgz:
+	rm -f build/calico-cni-unpacked.tgz;
+	wget $(UNPACKED_CNI_PLUGIN_URL) -O build/calico-cni-unpacked.tgz
+
+build/calico-cni.tgz: Makefile build/calico/calico build/calico-cni-unpacked.tgz
+	rm -f build/calico-cni.tgz;
+	if [ $(USE_UNPACKED_CNI_PLUGIN) = "y" ]; then \
+	  cp build/calico-cni-unpacked.tgz build/calico-cni.tgz; \
+	else \
+	  tar -czf build/calico-cni.tgz --directory build calico; \
+	fi
+
+.calico-cni-url: build/calico-cni.tgz
+	curl --upload-file build/calico-cni.tgz https://transfer.sh/calico-cni.tgz > .calico-cni-url
+
 gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	-gcloud compute instances create \
 	  $(PREFIX)-master \
@@ -120,7 +145,7 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	make --no-print-directory gce-forward-ports
 	#make --no-print-directory apply-node-labels
 
-build/%: templates/% Makefile
+build/%: templates/% Makefile .calico-cni-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
@@ -129,7 +154,8 @@ build/%: templates/% Makefile
 	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
 	  sed "s~__FELIXES__~$(PROM_FELIX_ENDPOINTS)~g" | \
 	  sed "s~__DRIVERS__~$(PROM_DRIVER_ENDPOINTS)~g" | \
-	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" > $@;
+	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g"  | \
+	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" > $@;
 
 build/etcd-%: build/etcd-template.yaml
 	node_name=`basename $@`; \
@@ -154,7 +180,8 @@ gce-create-etcd: $(ETCD_CONFIG_FILENAMES)
 	echo "etcd nodes started."
 
 gce-cleanup:
-	gcloud compute instances list --zones $(GCE_REGION) -r '$(PREFIX).*' |tail -n +2 |cut -f1 -d' ' |xargs gcloud compute instances delete --zone $(GCE_REGION)
+	gcloud compute instances list --zones $(GCE_REGION) -r '$(PREFIX).*' | \
+	  tail -n +2 | cut -f1 -d' ' | xargs gcloud compute instances delete --zone $(GCE_REGION)
 
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
