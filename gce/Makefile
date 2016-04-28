@@ -7,7 +7,7 @@ MASTER_INSTANCE_TYPE=n1-standard-16
 NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
 PROM_INSTANCE_TYPE=n1-standard-4
-PREFIX=smc-kube-scale
+PREFIX=lr2-kube-scale
 NODE_IMAGE=calico/node:v0.19.0
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".
@@ -19,7 +19,8 @@ PACKED_CNI_PLUGIN_URL=https://circle-artifacts.com/gh/projectcalico/calico-cni/1
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
 NODE_NAMES := $(addprefix $(PREFIX)-,$(NODE_NUMBERS))
 ETCD_NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(ETCD_CLUSTER_SIZE))
-ETCD_NODE_NAMES := $(addprefix $(PREFIX)-etcd-,$(ETCD_NODE_NUMBERS))
+ETCD_NODE_SUFFIXES := $(addprefix etcd-,$(ETCD_NODE_NUMBERS))
+ETCD_NODE_NAMES := $(addprefix $(PREFIX)-,$(ETCD_NODE_SUFFIXES))
 ETCD_CONFIG_FILENAMES := $(addprefix build/etcd-,$(ETCD_NODE_NUMBERS))
 
 # Figure out what files need templating.
@@ -39,7 +40,9 @@ PROM_ETCD_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-etcd-%02d:9
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
 
-LOG_RETRIEVAL_TARGETS := $(addprefix job,$(NODE_NUMBERS))
+# Add on the etcd nodes and master
+NODE_NUMBERS += $(ETCD_NODE_SUFFIXES) master
+LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
 PODS := 10000
 
 kubectl:
@@ -79,13 +82,14 @@ scale-pinger:
 pull-plugin-timings: $(LOG_RETRIEVAL_TARGETS)
 	grep TIMING timings/cni*.log > timings/all.timings
 	grep -v TIMING timings/cni*.log | grep -v INFO > timings/all.errors
-	-ssh -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) journalctl --no-pager >timings/master.log
+	# -ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 journalctl --no-pager >timings/master.log
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo tar -cvzf - /var/log/calico > timings/logs-$*.tgz
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log
+	-gcloud compute instances get-serial-port-output $(PREFIX)-$* > timings/serial-$*.log
 
 .PHONEY: $(LOG_RETRIEVAL_TARGETS)
 
@@ -226,5 +230,3 @@ gce-failed-pods:
 
 gce-wait-for-pod-creation:
 	bash -c 'while [ $$(kubectl get po | grep -P -c "1/1\s+Running\s+0") -ne $(PODS) ] ;  do date; echo "Not enough nodes created - waiting"; kubectl describe rc |grep "Pods Status"; sleep 1;done'
-
-

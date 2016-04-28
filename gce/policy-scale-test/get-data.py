@@ -17,8 +17,10 @@ DISPLAY_GRAPHS = False
 filename_prefix = time.strftime("%Y%m%d-%H%M%S")
 
 # Various regexes.
-queue_time_re = re.compile("INFO \('default', '(.*)'\) time on the queue: ([0-9\.]+)")
-proc_time_re = re.compile("INFO \('default', '(.*)'\) total process time: ([0-9]+\.[0-9]+)")
+queue_time_re = re.compile(
+    "INFO \('default', '(.*)'\) time on the queue: ([0-9\.]+)")
+proc_time_re = re.compile(
+    "INFO \('default', '(.*)'\) total process time: ([0-9]+\.[0-9]+)")
 start_re = re.compile("Started: ([0-9]+\.[0-9]+)")
 end_re = re.compile("Completed: ([0-9]+\.[0-9]+)")
 elapsed_re = re.compile("Elapsed: ([0-9]+\.[0-9]+)")
@@ -41,6 +43,7 @@ agent_process_times = []
 pod_names_q = Queue.Queue()
 pod_logs_q = Queue.Queue()
 
+
 def collect_data():
     # Get all pod names in calico-system.
     print "Getting all pods in calico-system namespace"
@@ -55,7 +58,7 @@ def collect_data():
     # Extract logs.
     print "Getting calico policy agent logs"
     calico_logs = check_output(["kubectl", "logs", "--namespace=calico-system",
-                                 pod_name, "-c", "k8s-policy-agent"])
+                                pod_name, "-c", "k8s-policy-agent"])
     write_data("calico-system", all_pods)
 
     # Extract queue / total processing times from the logs.
@@ -82,8 +85,8 @@ def collect_data():
     all_pods = json.loads(all_pods)["items"]
 
     # Get all "getter" pod names.
-    pods = {str(p["metadata"]["name"]): p for p in all_pods
-                    if "getter" in p["metadata"]["name"]}
+    pods = {str(p["metadata"]["name"]): p for p in all_pods if "getter" in
+            p["metadata"]["name"]}
 
     print "Generating queue of pod names"
     for pod_name, pod in pods.iteritems():
@@ -97,9 +100,10 @@ def collect_data():
                 break
 
             try:
-                print "Getting logs for %s (remaining: %s)" % (pod_name, pod_names_q.qsize())
+                print "Getting logs for %s (remaining: %s)" % (
+                    pod_name, pod_names_q.qsize())
                 logs = check_output(["kubectl", "logs", pod_name])
-            except subprocess.CalledProcessError, e:
+            except subprocess.CalledProcessError:
                 print "Error getting logs for: %s" % pod_name
                 continue
             else:
@@ -135,7 +139,6 @@ def collect_data():
             fmt = "%Y-%m-%dT%H:%M:%SZ"
             start_dt = pod["status"]["startTime"]
             start_time = datetime.datetime.strptime(start_dt, fmt)
-            #start_time = float(start_re.findall(logs)[0])
         except IndexError:
             print "pod has not started yet: %s" % pod_name
             failed.append((pod, logs, None))
@@ -170,6 +173,7 @@ def collect_data():
                 "logs": logs,
                 "raw": pod
         })
+
 
 def display_data():
     # Extract data to display.
@@ -213,7 +217,7 @@ def display_data():
     average = sum(elapsed_times) / len(elapsed_times)
 
     # Print out some data.
-    startup_time = (ordered_start_times[-1] - ordered_start_times[0]).seconds
+    startup_time = (max_x - min_x).seconds
     print "Time to start %s pods: %s (%s pods/s)" % (len(x),
                                                      startup_time,
                                                      len(x)/startup_time)
@@ -269,13 +273,6 @@ def write_data(filename, data):
     check_output(["mkdir", "-p", "testdata"])
     with open("testdata/%s" % filename, "a") as f:
         f.write(json.dumps(data))
-
-def get_diags():
-    #ssh core@kube-scale-master.us-central1-f.unique-caldron-775
-    #sudo tar zch --ignore-failed-read -C /var/log/calico felix >
-    ## $TARGET/felix.tar.gz
-    #journalctl -b | gzip -c > $TARGET/journal.gz
-    pass
 
 if __name__ == "__main__":
     collect_data()

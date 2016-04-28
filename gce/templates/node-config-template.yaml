@@ -2,7 +2,7 @@
 ---
 write_files:
   # Network config file for the Calico CNI plugin.
-  - path: /etc/cni/net.d/10-calico.conf 
+  - path: /etc/cni/net.d/10-calico.conf
     owner: root
     permissions: 0755
     content: |
@@ -19,10 +19,16 @@ write_files:
               "k8s_api_root": "http://__CLUSTER_PREFIX__-master:8080/api/v1/"
           }
       }
-
+  - path: /etc/resolv.conf
+    owner: root
+    permissions: 0755
+    content: |
+      # nameserver 10.100.0.10
+      nameserver 169.254.169.254
+      search default.svc.cluster.local svc.cluster.local cluster.local c.unique-caldron-775.internal
 coreos:
   etcd2:
-    proxy: on 
+    proxy: on
     listen-client-urls: http://127.0.0.1:2379
     initial-cluster: __ETCD_PEER_URLS__
   fleet:
@@ -49,7 +55,7 @@ coreos:
         Description=calicoctl node
         After=docker.service
         Requires=docker.service
-        
+
         [Service]
         User=root
         Environment=ETCD_AUTHORITY=127.0.0.1:2379

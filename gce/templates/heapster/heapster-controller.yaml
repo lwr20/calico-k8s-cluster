@@ -16,6 +16,7 @@ spec:
         k8s-app: heapster
         kubernetes.io/cluster-service: "true"
     spec:
+      hostNetwork: true
       containers:
         - image: gcr.io/google_containers/heapster:v1.0.0
           name: heapster
@@ -45,4 +46,4 @@ spec:
           command:
             - /eventer
             - --source=kubernetes:''
-            - --sink=influxdb:http://monitoring-influxdb:8086
+            - --sink=influxdb:http://monitoring-influxdb.kube-system.svc.cluster.local:8086
