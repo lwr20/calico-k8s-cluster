@@ -2,7 +2,7 @@
 ---
 write_files:
   # Network config file for the Calico CNI plugin.
-  - path: /etc/cni/net.d/10-calico.conf 
+  - path: /etc/cni/net.d/10-calico.conf
     owner: root
     permissions: 0755
     content: |
@@ -28,7 +28,7 @@ write_files:
       search default.svc.cluster.local svc.cluster.local cluster.local c.unique-caldron-775.internal
 coreos:
   etcd2:
-    proxy: on 
+    proxy: on
     listen-client-urls: http://127.0.0.1:2379
     initial-cluster: __ETCD_PEER_URLS__
   fleet:
@@ -55,11 +55,12 @@ coreos:
         Description=calicoctl node
         After=docker.service
         Requires=docker.service
-        
+
         [Service]
         User=root
         Environment=ETCD_AUTHORITY=127.0.0.1:2379
         PermissionsStartOnly=true
+        ExecStartPre=/usr/bin/docker rmi $(docker images --filter "dangling=true" -q --no-trunc)
         ExecStartPre=/usr/bin/wget -N -P /opt/bin http://__CLUSTER_PREFIX__-master/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-node
