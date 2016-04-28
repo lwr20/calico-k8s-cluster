@@ -266,6 +266,7 @@ def write_data(filename, data):
     # Write to file.
     filename = "%s_%s" % (filename_prefix, filename)
     print "Writing to file: %s" % filename
+    check_output(["mkdir", "-p", "testdata"])
     with open("testdata/%s" % filename, "a") as f:
         f.write(json.dumps(data))
 
