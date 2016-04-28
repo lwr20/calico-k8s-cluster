@@ -4,14 +4,14 @@ write_files:
   # Need to configure localhost since GCE doesn't do it for us.
   # Specifically, the leader election container requires localhost
   # to resolve to 127.0.0.1
-  - path: /etc/hosts 
+  - path: /etc/hosts
     owner: root
     permissions: 0644
     content: |
       127.0.0.1    localhost
 
   # Network config file for the Calico CNI plugin.
-  - path: /etc/cni/net.d/10-calico.conf 
+  - path: /etc/cni/net.d/10-calico.conf
     owner: root
     permissions: 0755
     content: |
@@ -61,14 +61,14 @@ write_files:
           # The Calico policy agent.
           - name: k8s-policy-agent
             image: calico/k8s-policy-agent:latest
-            imagePullPolicy: IfNotPresent 
+            imagePullPolicy: IfNotPresent
             env:
               # Modify ETCD_ENDPOINTS to match your etcd cluster.
               - name: ETCD_ENDPOINTS
                 value: "__ETCD_ENDPOINTS__"
               - name: K8S_API
                 value: "http://127.0.0.1:8080"
-              - name: LEADER_ELECTION 
+              - name: LEADER_ELECTION
                 value: "true"
           # Leader election container used by the policy agent.
           - name: leader-elector
@@ -91,14 +91,14 @@ write_files:
       apiVersion: net.alpha.kubernetes.io/v1alpha1
       metadata:
         namespace: default
-        name: nginx-service 
+        name: nginx-service
       spec:
         podSelector:
-          k8s-app: nginx-server 
+          k8s-app: nginx-server
         ingress:
           - from:
               - pods:
-                  role: getter 
+                  role: getter
             ports:
               - protocol: TCP
                 port: 80
@@ -226,7 +226,7 @@ coreos:
         Description=calicoctl node
         After=docker.service
         Requires=docker.service
-        
+
         [Service]
         User=root
         Environment=ETCD_ENDPOINTS=__ETCD_ENDPOINTS__
@@ -234,7 +234,7 @@ coreos:
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/opt/bin/calicoctl pool add 192.168.0.0/16 --ipip --nat-outgoing
-        ExecStart=/opt/bin/calicoctl node --detach=false
+        ExecStart=/opt/bin/calicoctl node --detach=false --node-image=__NODE_IMAGE__
         Restart=always
         RestartSec=10
 
@@ -300,7 +300,7 @@ coreos:
         RestartSec=10
 
     # Installs the NetworkPolicy object used in the scale test.
-    - name: install-policy.service 
+    - name: install-policy.service
       command: start
       content: |
         [Unit]
@@ -370,10 +370,10 @@ coreos:
       command: start
       content: |
         [Unit]
-        Description=Prometheus node statistis exporter
+        Description=Prometheus node statistics exporter
         After=docker.service
         Requires=docker.service
         [Service]
-        ExecStart=/usr/bin/docker run -d -p 9100:9100 --net="host" prom/node-exporter
+        ExecStart=/usr/bin/docker run --rm --name node-exporter -p 9100:9100 --net="host" prom/node-exporter
         Restart=always
         RestartSec=10
