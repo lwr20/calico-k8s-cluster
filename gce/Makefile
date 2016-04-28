@@ -8,7 +8,7 @@ NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
 PROM_INSTANCE_TYPE=n1-standard-4
 PREFIX=smc-kube-scale
-NODE_IMAGE=fasaxc/calico-node:latest
+NODE_IMAGE=calico/node:v0.19.0
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".
 USE_UNPACKED_CNI_PLUGIN=n
