@@ -1,4 +1,5 @@
-# Cluster parameters go here.
+# Parameters for the cluster, don't edit these directly, put your changes in
+# local-settings.mk.
 CLUSTER_SIZE := 2
 ETCD_CLUSTER_SIZE := 3
 GCE_REGION=us-central1-f
@@ -7,13 +8,15 @@ MASTER_INSTANCE_TYPE=n1-standard-16
 NODE_INSTANCE_TYPE=n1-highcpu-4
 ETCD_INSTANCE_TYPE=n1-standard-16
 PROM_INSTANCE_TYPE=n1-standard-4
-PREFIX=lr2-kube-scale
+PREFIX=kube-scale
 NODE_IMAGE=calico/node:v0.19.0
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".
 USE_UNPACKED_CNI_PLUGIN=n
 UNPACKED_CNI_PLUGIN_URL=https://transfer.sh/bw4hX/calico-cni.tgz
 PACKED_CNI_PLUGIN_URL=https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico
+
+-include local-settings.mk
 
 # Generate node names.
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
@@ -105,7 +108,7 @@ build/calico-cni-unpacked.tgz:
 	rm -f build/calico-cni-unpacked.tgz;
 	wget $(UNPACKED_CNI_PLUGIN_URL) -O build/calico-cni-unpacked.tgz
 
-build/calico-cni.tgz: Makefile build/calico/calico build/calico-cni-unpacked.tgz
+build/calico-cni.tgz: Makefile local-settings.mk local-settings.mk build/calico/calico build/calico-cni-unpacked.tgz
 	rm -f build/calico-cni.tgz;
 	if [ $(USE_UNPACKED_CNI_PLUGIN) = "y" ]; then \
 	  cp build/calico-cni-unpacked.tgz build/calico-cni.tgz; \
@@ -152,7 +155,7 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	make --no-print-directory gce-forward-ports
 	#make --no-print-directory apply-node-labels
 
-build/%: templates/% Makefile .calico-cni-url
+build/%: templates/% Makefile local-settings.mk .calico-cni-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
