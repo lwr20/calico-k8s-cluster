@@ -1,0 +1,59 @@
+#cloud-config
+---
+write_files:
+  # Network config file for the Calico CNI plugin.
+  - path: /etc/prometheus.yml
+    owner: root
+    permissions: 0655
+    content: |
+      scrape_configs:
+      - job_name: felix
+        scrape_interval: 10s
+        target_groups:
+        - targets: __FELIXES__
+        - targets: ["__CLUSTER_PREFIX__-master:9091"]
+      - job_name: etcd-driver
+        scrape_interval: 10s
+        target_groups:
+        - targets: __DRIVERS__
+        - targets: ["__CLUSTER_PREFIX__-master:9092"]
+      - job_name: host
+        scrape_interval: 10s
+        target_groups:
+        - targets: __PROM_HOSTS__
+        - targets: ["__CLUSTER_PREFIX__-master:9100"]
+
+coreos:
+
+  fleet:
+    metadata: "role=node"
+    etcd_servers: "http://127.0.0.1:2379"
+  update:
+    reboot-strategy: off
+  units:
+    - name: "docker.service"
+      drop-ins:
+        - name: "50-insecure-registry.conf"
+          content: |
+            [Service]
+            Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'
+    - name: fleet.service
+      command: start
+    - name: prom.service
+      command: start
+      content: |
+        [Unit]
+        Description=Prometheus
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        TimeoutStartSec=0
+        ExecStart=/usr/bin/docker run --name prometheus -p 9090:9090 \
+                  -v /etc/prometheus.yml:/etc/prometheus.yml \
+                  -d \
+                  prom/prometheus \
+                  -config.file=/etc/prometheus.yml
+
+        [Install]
+        WantedBy=multi-user.target

@@ -129,7 +129,7 @@ def collect_data():
 
     print "Parsing results"
     for pod_name, logs in logs_by_pod.iteritems():
-        print "Pod %s \n%s" % (pod_name, logs)
+        print "Pod %s \n%s" % (pod_name, logs.splitlines()[-5:])
         pod = pods.get(pod_name)
         try:
             # Format: 2016-04-11T21:04:15Z
@@ -268,6 +268,7 @@ def write_data(filename, data):
     # Write to file.
     filename = "%s_%s" % (filename_prefix, filename)
     print "Writing to file: %s" % filename
+    check_output(["mkdir", "-p", "testdata"])
     with open("testdata/%s" % filename, "a") as f:
         f.write(json.dumps(data))
 
