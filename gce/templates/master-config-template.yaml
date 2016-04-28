@@ -234,7 +234,7 @@ coreos:
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/opt/bin/calicoctl pool add 192.168.0.0/16 --ipip --nat-outgoing
-        ExecStart=/opt/bin/calicoctl node --detach=false
+        ExecStart=/opt/bin/calicoctl node --detach=false --node-image=__NODE_IMAGE__
         Restart=always
         RestartSec=10
 
@@ -370,10 +370,10 @@ coreos:
       command: start
       content: |
         [Unit]
-        Description=Prometheus node statistis exporter
+        Description=Prometheus node statistics exporter
         After=docker.service
         Requires=docker.service
         [Service]
-        ExecStart=/usr/bin/docker run -d -p 9100:9100 --net="host" prom/node-exporter
+        ExecStart=/usr/bin/docker run --rm --name node-exporter -p 9100:9100 --net="host" prom/node-exporter
         Restart=always
         RestartSec=10

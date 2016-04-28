@@ -33,6 +33,8 @@ ETCD_ENDPOINTS := $(shell python -c 'print ",".join(["http://$(PREFIX)-etcd-%02d
 PROM_FELIX_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9091" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
 PROM_DRIVER_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9092" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
 PROM_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9100" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
+PROM_ETCD_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-etcd-%02d:2379" % n for n in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
+PROM_ETCD_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-etcd-%02d:9100" % n for n in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
@@ -129,8 +131,8 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	  --image coreos-alpha-1010-1-0-v20160407 \
 	  --machine-type $(NODE_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/node-config-template.yaml \
-	--no-address \
-	--tags no-ip
+	  --no-address \
+	  --tags no-ip
 
 	gcloud compute instances create \
 	  $(PREFIX)-prom \
@@ -156,6 +158,8 @@ build/%: templates/% Makefile .calico-cni-url
 	  sed "s~__FELIXES__~$(PROM_FELIX_ENDPOINTS)~g" | \
 	  sed "s~__DRIVERS__~$(PROM_DRIVER_ENDPOINTS)~g" | \
 	  sed "s~__PROM_HOSTS__~$(PROM_HOST_ENDPOINTS)~g" | \
+	  sed "s~__PROM_ETCD_ENDPOINTS__~$(PROM_ETCD_ENDPOINTS)~g" | \
+	  sed "s~__PROM_ETCD_HOST_ENDPOINTS__~$(PROM_ETCD_HOST_ENDPOINTS)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g"  | \
 	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" > $@;
 
@@ -175,7 +179,8 @@ gce-create-etcd: $(ETCD_CONFIG_FILENAMES)
 	    --machine-type $(ETCD_INSTANCE_TYPE) \
 	    --local-ssd interface=scsi \
 	    --no-address \
-	    --metadata-from-file user-data=build/etcd-$$ii & \
+	    --metadata-from-file user-data=build/etcd-$$ii \
+	    --tags no-ip & \
 	done; \
 	echo "Waiting for creation of etcd nodes to finish..."; \
 	wait; \
