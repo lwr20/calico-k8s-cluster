@@ -52,6 +52,9 @@ kubectl:
 	wget http://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/$(OS)/amd64/kubectl
 	chmod +x kubectl
 
+calicoctl-status:
+	-ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 sudo ETCD_AUTHORITY=kube-scale-etcd-01:2379 calicoctl status
+
 calicoctl:
 	wget http://www.projectcalico.org/builds/calicoctl
 	chmod +x calicoctl
