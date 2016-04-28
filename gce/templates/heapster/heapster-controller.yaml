@@ -16,6 +16,7 @@ spec:
         k8s-app: heapster
         kubernetes.io/cluster-service: "true"
     spec:
+      hostNetwork: true
       containers:
         - image: gcr.io/google_containers/heapster:v1.0.0
           name: heapster
@@ -29,8 +30,13 @@ spec:
               memory: 600Mi
           command:
             - /heapster
+<<<<<<< Updated upstream:gce/templates/heapster/heapster-controller.yaml
             - --source=kubernetes:http://__CLUSTER_PREFIX__-master:8080?inClusterConfig=false&useServiceAccount=true&auth=
             - --sink=influxdb:http://monitoring-influxdb:8086
+=======
+            - --source=kubernetes:http://kube-scale-master.c.unique-caldron-775.internal:8080?inClusterConfig=false&useServiceAccount=true&auth=
+            - --sink=influxdb:http://monitoring-influxdb.kube-system.svc.cluster.local:8086
+>>>>>>> Stashed changes:gce/heapster/heapster-controller.yaml
             - --metric_resolution=60s
         - image: gcr.io/google_containers/heapster:v1.0.0
           name: eventer
@@ -45,4 +51,4 @@ spec:
           command:
             - /eventer
             - --source=kubernetes:''
-            - --sink=influxdb:http://monitoring-influxdb:8086
+            - --sink=influxdb:http://monitoring-influxdb.kube-system.svc.cluster.local:8086

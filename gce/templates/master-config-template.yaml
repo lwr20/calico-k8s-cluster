@@ -357,8 +357,13 @@ coreos:
         ExecStartPre=-/usr/bin/docker kill registry
         ExecStartPre=-/usr/bin/docker rm registry
         ExecStartPre=-/usr/bin/docker pull registry:2
+<<<<<<< Updated upstream:gce/templates/master-config-template.yaml
         ExecStartPre=-/usr/bin/docker pull __NODE_IMAGE__
         ExecStartPre=-/usr/bin/docker tag __NODE_IMAGE__ __CLUSTER_PREFIX__-master:5000/calico-node
+=======
+        ExecStartPre=-/usr/bin/docker pull lwr20/calico-node
+        ExecStartPre=-/usr/bin/docker tag lwr20/calico-node kube-scale-master:5000/calico-node
+>>>>>>> Stashed changes:gce/master-config-template.yaml
         ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
         ExecStartPost=/bin/sleep 5
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/calico-node

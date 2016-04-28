@@ -1,4 +1,5 @@
 # Cluster parameters go here.
+<<<<<<< Updated upstream
 CLUSTER_SIZE := 2
 ETCD_CLUSTER_SIZE := 3
 GCE_REGION=us-central1-f
@@ -14,6 +15,17 @@ NODE_IMAGE=calico/node:v0.19.0
 USE_UNPACKED_CNI_PLUGIN=n
 UNPACKED_CNI_PLUGIN_URL=https://transfer.sh/bw4hX/calico-cni.tgz
 PACKED_CNI_PLUGIN_URL=https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico
+=======
+CLUSTER_SIZE := 100
+GCE_REGION=us-central1-f
+MASTER_INSTANCE_TYPE=n1-standard-32
+NODE_INSTANCE_TYPE=n1-highcpu-4
+ETCD_INSTANCE_TYPE=n1-standard-16
+# For density style test (30 pods per node):
+# MASTER_INSTANCE_TYPE=n1-standard-4
+# NODE_INSTANCE_TYPE=n1-standard-1
+PREFIX=kube-scale
+>>>>>>> Stashed changes
 
 # Generate node names.
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
@@ -79,7 +91,11 @@ scale-pinger:
 pull-plugin-timings: $(LOG_RETRIEVAL_TARGETS)
 	grep TIMING timings/cni*.log > timings/all.timings
 	grep -v TIMING timings/cni*.log | grep -v INFO > timings/all.errors
+<<<<<<< Updated upstream
 	-ssh -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) journalctl --no-pager >timings/master.log
+=======
+	# -ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 journalctl --no-pager >timings/master.log
+>>>>>>> Stashed changes
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
