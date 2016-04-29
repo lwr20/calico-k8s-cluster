@@ -1,20 +1,21 @@
 # Parameters for the cluster, don't edit these directly, put your changes in
 # local-settings.mk.
-CLUSTER_SIZE := 2
-ETCD_CLUSTER_SIZE := 3
-GCE_REGION=us-central1-f
-GCE_PROJECT=unique-caldron-775
-MASTER_INSTANCE_TYPE=n1-standard-16
-NODE_INSTANCE_TYPE=n1-highcpu-4
-ETCD_INSTANCE_TYPE=n1-standard-16
-PROM_INSTANCE_TYPE=n1-standard-4
-PREFIX=kube-scale
-NODE_IMAGE=calico/node:v0.19.0
+CLUSTER_SIZE:=2
+ETCD_CLUSTER_SIZE:=3
+GCE_REGION:=us-central1-f
+GCE_PROJECT:=unique-caldron-775
+GCE_IMAGE_NAME:=coreos-alpha-1010-1-0-v20160407
+MASTER_INSTANCE_TYPE:=n1-standard-16
+NODE_INSTANCE_TYPE:=n1-highcpu-4
+ETCD_INSTANCE_TYPE:=n1-standard-16
+PROM_INSTANCE_TYPE:=n1-standard-4
+PREFIX:=kube-scale
+NODE_IMAGE:=calico/node:v0.19.0
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".
-USE_UNPACKED_CNI_PLUGIN=n
-UNPACKED_CNI_PLUGIN_URL=https://transfer.sh/bw4hX/calico-cni.tgz
-PACKED_CNI_PLUGIN_URL=https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico
+USE_UNPACKED_CNI_PLUGIN:=n
+UNPACKED_CNI_PLUGIN_URL:=https://transfer.sh/bw4hX/calico-cni.tgz
+PACKED_CNI_PLUGIN_URL:=https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico
 
 -include local-settings.mk
 
@@ -124,7 +125,7 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	  $(PREFIX)-master \
 	  --zone $(GCE_REGION) \
 	  --image-project coreos-cloud \
-	  --image coreos-alpha-1010-1-0-v20160407 \
+	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(MASTER_INSTANCE_TYPE) \
 	  --local-ssd interface=scsi \
 	  --metadata-from-file user-data=build/master-config-template.yaml
@@ -135,7 +136,7 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	  $(NODE_NAMES) \
 	  --zone $(GCE_REGION) \
 	  --image-project coreos-cloud \
-	  --image coreos-alpha-1010-1-0-v20160407 \
+	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(NODE_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/node-config-template.yaml \
 	  --no-address \
@@ -145,7 +146,7 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	  $(PREFIX)-prom \
 	  --image-project coreos-cloud \
 	  --zone $(GCE_REGION) \
-	  --image coreos-alpha-1010-1-0-v20160407 \
+	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(PROM_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/prom-config-template.yaml \
 	  --no-address \
@@ -183,7 +184,7 @@ gce-create-etcd: $(ETCD_CONFIG_FILENAMES)
 	    $(PREFIX)-etcd-$$ii \
 	    --zone $(GCE_REGION) \
 	    --image-project coreos-cloud \
-	    --image coreos-alpha-1010-1-0-v20160407 \
+	    --image $(GCE_IMAGE_NAME) \
 	    --machine-type $(ETCD_INSTANCE_TYPE) \
 	    --local-ssd interface=scsi \
 	    --no-address \
