@@ -162,6 +162,7 @@ build/%: templates/% Makefile local-settings.mk .calico-cni-url
 	  sed "s~__ETCD_CLIENT_URLS__~$(ETCD_CLIENT_URLS)~g" | \
 	  sed "s~__ETCD_ENDPOINTS__~$(ETCD_ENDPOINTS)~g"  | \
 	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
+	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
 	  sed "s~__FELIXES__~$(PROM_FELIX_ENDPOINTS)~g" | \
 	  sed "s~__DRIVERS__~$(PROM_DRIVER_ENDPOINTS)~g" | \
 	  sed "s~__PROM_HOSTS__~$(PROM_HOST_ENDPOINTS)~g" | \

@@ -25,7 +25,7 @@ write_files:
     content: |
       # nameserver 10.100.0.10
       nameserver 169.254.169.254
-      search default.svc.cluster.local svc.cluster.local cluster.local c.unique-caldron-775.internal
+      search default.svc.cluster.local svc.cluster.local cluster.local c.__GCE_PROJECT__.internal
 coreos:
   etcd2:
     proxy: on
