@@ -12,12 +12,18 @@ PROM_INSTANCE_TYPE:=n1-standard-4
 PREFIX:=kube-scale
 NODE_IMAGE:=calico/node:v0.19.0
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
-# version).  "y" or "n".
+# version).  "y" or "n".  Note: this URL is for an experimental, unreleased
+# version of the plugin.  The purpose of this flag is to test whether using
+# an unpacked version of the plugin improves scale.
 USE_UNPACKED_CNI_PLUGIN:=n
-UNPACKED_CNI_PLUGIN_URL:=https://transfer.sh/bw4hX/calico-cni.tgz
-PACKED_CNI_PLUGIN_URL:=https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico
+UNPACKED_CNI_PLUGIN_URL:=https://storage.googleapis.com/calico-scale-testing-files/calico-cni-unpacked-a1c2749-libcalico-f0f9f33.tgz
+# URL of the standard (packed) version of the CNI plugin.
+PACKED_CNI_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/v0.2.0/calico
 
 -include local-settings.mk
+
+# GCE bucket we use to store files we need to transfer to hosts.
+GCE_BUCKET:=$(PREFIX)-data
 
 # Generate node names.
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
@@ -86,7 +92,6 @@ scale-pinger:
 pull-plugin-timings: $(LOG_RETRIEVAL_TARGETS)
 	grep TIMING timings/cni*.log > timings/all.timings
 	grep -v TIMING timings/cni*.log | grep -v INFO > timings/all.errors
-	# -ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 journalctl --no-pager >timings/master.log
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
@@ -100,6 +105,11 @@ $(LOG_RETRIEVAL_TARGETS): job%:
 .PHONEY: render-templates
 render-templates: $(TEMPLATED_OUTPUT)
 
+build/$(GCE_BUCKET).created:
+	-gsutil mb -p $(GCE_PROJECT) gs://$(GCE_BUCKET)
+	touch build/$(GCE_BUCKET).created
+
+# Download the packed CNI plugin binary.
 build/calico/calico:
 	mkdir -p build/calico
 	wget $(PACKED_CNI_PLUGIN_URL) -O build/calico/calico
@@ -109,16 +119,28 @@ build/calico-cni-unpacked.tgz:
 	rm -f build/calico-cni-unpacked.tgz;
 	wget $(UNPACKED_CNI_PLUGIN_URL) -O build/calico-cni-unpacked.tgz
 
-build/calico-cni.tgz: Makefile local-settings.mk local-settings.mk build/calico/calico build/calico-cni-unpacked.tgz
-	rm -f build/calico-cni.tgz;
-	if [ $(USE_UNPACKED_CNI_PLUGIN) = "y" ]; then \
-	  cp build/calico-cni-unpacked.tgz build/calico-cni.tgz; \
-	else \
-	  tar -czf build/calico-cni.tgz --directory build calico; \
-	fi
+# Takes the bare calico executable and packages it in a tgz so that its
+# structure matches the unpacked plugin.
+build/calico-cni-packed.tgz: Makefile local-settings.mk build/calico/calico
+	tar -czf build/calico-cni-packed.tgz --directory build calico
 
-.calico-cni-url: build/calico-cni.tgz
-	curl --upload-file build/calico-cni.tgz https://transfer.sh/calico-cni.tgz > .calico-cni-url
+.calico-cni-packed-url: build/calico-cni-packed.tgz build/$(GCE_BUCKET).created
+	gsutil cp build/calico-cni-packed.tgz gs://$(GCE_BUCKET)/calico-cni-packed.tgz
+	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/calico-cni-packed.tgz
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/calico-cni-packed.tgz" > .calico-cni-packed-url
+
+ifeq ($(USE_UNPACKED_CNI_PLUGIN), y)
+.calico-cni-url: Makefile local-settings.mk
+	echo "$(UNPACKED_CNI_PLUGIN_URL)" > .calico-cni-url
+else
+.calico-cni-url: .calico-cni-packed-url Makefile local-settings.mk
+	cp .calico-cni-packed-url .calico-cni-url
+endif
+
+.prom-conf-url: Makefile local-settings.mk build/prometheus.yml
+	gsutil cp build/prometheus.yml gs://$(GCE_BUCKET)/prometheus.yml
+	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/prometheus.yml
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/prometheus.yml" > .prom-conf-url
 
 gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	-gcloud compute instances create \
@@ -169,8 +191,9 @@ build/%: templates/% Makefile local-settings.mk .calico-cni-url
 	  sed "s~__PROM_HOSTS__~$(PROM_HOST_ENDPOINTS)~g" | \
 	  sed "s~__PROM_ETCD_ENDPOINTS__~$(PROM_ETCD_ENDPOINTS)~g" | \
 	  sed "s~__PROM_ETCD_HOST_ENDPOINTS__~$(PROM_ETCD_HOST_ENDPOINTS)~g" | \
-	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g"  | \
-	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" > $@;
+	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
+	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" | \
+	  sed "s~__PROMETHEUS_CONFIG_URL__~$$(cat .prom-conf-url)~g" > $@;
 
 build/etcd-%: build/etcd-template.yaml
 	node_name=`basename $@`; \
