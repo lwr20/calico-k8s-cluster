@@ -19,6 +19,9 @@ USE_UNPACKED_CNI_PLUGIN:=n
 UNPACKED_CNI_PLUGIN_URL:=https://storage.googleapis.com/calico-scale-testing-files/calico-cni-unpacked-a1c2749-libcalico-f0f9f33.tgz
 # URL of the standard (packed) version of the CNI plugin.
 PACKED_CNI_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/v0.2.0/calico
+# URL of pre-configured Grafana DB.  Currently, this is empty apart from
+# having Prometheus pre-configured as the default data source.
+GRAFANA_DB_URL:=https://storage.googleapis.com/calico-scale-testing-files/grafana.db
 
 -include local-settings.mk
 
@@ -137,6 +140,11 @@ else
 	cp .calico-cni-packed-url .calico-cni-url
 endif
 
+.grafana-json-url: Makefile local-settings.mk templates/grafana.json
+	gsutil cp templates/grafana.json gs://$(GCE_BUCKET)/grafana-dash.json
+	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/grafana-dash.json
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/grafana-dash.json" > .grafana-json-url
+
 .prom-conf-url: Makefile local-settings.mk build/prometheus.yml
 	gsutil cp build/prometheus.yml gs://$(GCE_BUCKET)/prometheus.yml
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/prometheus.yml
@@ -178,7 +186,7 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	make --no-print-directory gce-forward-ports
 	#make --no-print-directory apply-node-labels
 
-build/%: templates/% Makefile local-settings.mk .calico-cni-url
+build/%: templates/% Makefile local-settings.mk .calico-cni-url .grafana-json-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
@@ -193,6 +201,8 @@ build/%: templates/% Makefile local-settings.mk .calico-cni-url
 	  sed "s~__PROM_ETCD_HOST_ENDPOINTS__~$(PROM_ETCD_HOST_ENDPOINTS)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
 	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" | \
+	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
+	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat .grafana-json-url)~g" | \
 	  sed "s~__PROMETHEUS_CONFIG_URL__~$$(cat .prom-conf-url)~g" > $@;
 
 build/etcd-%: build/etcd-template.yaml
@@ -225,7 +235,20 @@ gce-cleanup:
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
 	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) date; do echo "Trying to forward ports"; sleep 1; done'
-	ssh -o PasswordAuthentication=no -L 8080:localhost:8080 -L 2379:localhost:2379 -L 4194:localhost:4194 -L 9090:$(PREFIX)-prom:9090 -o LogLevel=quiet -nNT core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) &
+	ssh -o PasswordAuthentication=no \
+	    -L 8080:localhost:8080 \
+	    -L 2379:localhost:2379 \
+	    -L 4194:localhost:4194 \
+	    -L 9090:$(PREFIX)-prom:9090 \
+	    -L 3000:$(PREFIX)-prom:3000 \
+	    -o LogLevel=quiet -nNT \
+	    core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) &
+	@echo
+	@echo "Forwarded ports:"
+	@echo "- Grafana dashboard at http://localhost:3000/dashboard/file/grafana-dash.json"
+	@echo "- Prometheus at http://localhost:9090/"
+	@echo "- Kubernetes' etcd at http://localhost:2379/"
+	@echo "- Kubernetes' API at http://localhost:8080/"
 
 gce-redeploy: build/master-config-template.yaml build/node-config-template.yaml
 	gcloud compute instances add-metadata $(PREFIX)-master --metadata-from-file=user-data=build/master-config-template.yaml
