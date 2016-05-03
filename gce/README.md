@@ -1,33 +1,37 @@
 # Scale testing Kubernetes + Calico
 
-This repo contains cloud config files for configuring a simple CoreOS + Kubernetes cluster.
+This repo contains cloud config files for configuring a CoreOS + Kubernetes cluster for scale testing.
 
-It can be deployed using vagrant (see the included Vagrantfile) or to GCE using the commands in the Makefile.
+While we provide Vagrant and GCE files, only the GCE files have been updated recently so we recommend starting with those.
 
-It was most recently run on GCE so some changes will be required to get it to run on Vagrant again.
+## Getting started on GCE
 
-## Getting started
+These instructions have been tested on Ubuntu 14.04.  They are likely to work with more recent versions too.
 
+* You will need the following pre-requisites installed:
+  * GNU make
+  * The [Google Cloud SDK](https://cloud.google.com/sdk/downloads).
+  * kubectl, at least version 1.2 (this comes with the Cloud SDK).
+  * ssh.
+* Make sure your cloud SDK is up-to-date: `gcloud components update`.
+* Create a GCE project, if you don't have one already and configure gcloud to us it.
+* `cd gce`
+* Create a file `local-settings.mk` with your preferred editor.  Review the settings at the top of `./Makefile` and tweak any copy any that you need to change over to `local-setting.mk`.  At the very least, you'll want to change `GCE_PROJECT` to the name of a GCE project that you control.
 * Run
-  * `make gce-create`
-    * Runs two gloud commands.
-      * Master - Create a high CPU server with an external IP, a local SSD and using the master cloud config (see below)
-      * Nodes - Create many servers without a external IPs using the node cloud config (see below)
-  * `make gce-forward-ports`
-    * After the master node has booted, run this target to get kubectl, etcdctl and calicoctl access on localhost.
-  * `make apply-node-labels`
-    * This labels the nodes so the pingers won't run on the master. See the pinger.yaml for more detail
-  * `make deploy-pinger`
-    * This creates a replication controller for the pinger task
-  * `make scale-pinger`
-
-  * `make -j24 pull-plugin-timings`
-    * Pull down the timing
-    * Can scale the replication controller to 0 if you want deletion times too.
-    * Can analyse the results with e.g.
-      * `grep DEL all.csv | cut -d, -f 6   | ./histogram.py`
-  * `make gce-cleanup`
-    * Removes all the VMs
+  * `make gce-create`, this runs several gcloud commands to start the Kubernetes cluster; then it uses ssh to forward various local ports to the cluster.
+  * Configure Kuberenetes for the start of the test:
+    * Wait for the hosts to check in with Kubernetes: `watch kubectl get nodes`.  You should see an entry in state "Ready" for each compute host.
+    * `cd policy-scale-test`
+    * `./start.sh`
+    * Known issue: check the policy was injected: `./policy list` should show an entry for nginx.  If it doesn't, run `./policy create -f nginx-policy.yaml`
+    * If you're running a large cluster (>50 hosts), scale up the number of nginx pods.  We recommend 1 nginx pod for every 50 hosts in the cluster.  `kubectl scale rc nginx-server --replicas=<num-replicas>`.
+  * Run the test:
+    * Scale up the number of "getter" pods, each of which will try to connect to nginx and then record their timings.  We recommend starting at most 100 pods per compute host.  `kubectl scale rc getter --replicas=<num-replicas>`.
+    * Wait for all pods to be started.  This command will auto-update, showing only the pods that haven't finished starting yet: `watch kubectl get pods | grep -v Running`.  Note: Kubernetes throttles updates to the pod status so it can take some time for Kubernetes to report the correct state.
+    * Pull basic stats and graphs: `python ./get-data.py`
+    * The test includes a performance dashboard, which is accessible at http://localhost:3000.
+  * You can also pull full logs with `make -j24 pull-plugin-timings` for diagnostic purposes.
+  * To tear down the cluster, run `make gce-cleanup`.
   
 ## Changes to run on Vagrant
 This was originally written for vagrant and the changes required for running on vagrant should be minimal.
@@ -41,5 +45,4 @@ The Makefile also contains other experimental features such as running heapster.
 
 ## Future
 * Route reflector
-* Etcd cluster + different etcd for kubernetes and calico
 * Services and more use of DNS
