@@ -95,9 +95,8 @@ scale-pinger:
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 CLUSTER_SIZE=26 pull-plugin-timings
-pull-plugin-timings: $(LOG_RETRIEVAL_TARGETS)
-	grep TIMING timings/cni*.log > timings/all.timings
-	grep -v TIMING timings/cni*.log | grep -v INFO > timings/all.errors
+get-diags: $(LOG_RETRIEVAL_TARGETS)
+	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
