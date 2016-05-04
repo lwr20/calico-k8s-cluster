@@ -2,32 +2,21 @@
 ---
 write_files:
   # Network config file for the Calico CNI plugin.
-  - path: /etc/prometheus.yml
+  - path: /etc/grafana/grafana.ini
     owner: root
     permissions: 0655
     content: |
-      scrape_configs:
-      - job_name: felix
-        scrape_interval: 10s
-        target_groups:
-        - targets: __FELIXES__
-        - targets: ["__CLUSTER_PREFIX__-master:9091"]
-      - job_name: etcd-driver
-        scrape_interval: 10s
-        target_groups:
-        - targets: __DRIVERS__
-        - targets: ["__CLUSTER_PREFIX__-master:9092"]
-      - job_name: etcd
-        scrape_interval: 10s
-        target_groups:
-        - targets: __PROM_ETCD_ENDPOINTS__
-      - job_name: host
-        scrape_interval: 10s
-        target_groups:
-        - targets: __PROM_HOSTS__
-        - targets: __PROM_ETCD_HOST_ENDPOINTS__
-        - targets: ["__CLUSTER_PREFIX__-master:9100", "__CLUSTER_PREFIX__-prom:9100"]
+      [dashboards.json]
+      enabled=true
+      path=/etc/grafana/dashboards
 
+      [auth.anonymous]
+      enabled=true
+
+      [paths]
+      data=/etc/grafana/
+      logs=/var/log/grafana
+      home=/usr/share/grafana
 coreos:
 
   fleet:
@@ -54,11 +43,30 @@ coreos:
 
         [Service]
         TimeoutStartSec=0
+        ExecStartPre=/usr/bin/wget -N -P /etc/ __PROMETHEUS_CONFIG_URL__
         ExecStart=/usr/bin/docker run --rm --name prometheus -p 9090:9090 \
                   -v /etc/prometheus.yml:/etc/prometheus.yml \
                   prom/prometheus \
                   -config.file=/etc/prometheus.yml
 
+        [Install]
+        WantedBy=multi-user.target
+    - name: grafana.service
+      command: start
+      content: |
+        [Unit]
+        Description=Grafana dashboard
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        TimeoutStartSec=0
+        ExecStartPre=/usr/bin/mkdir -p /etc/grafana/dashboards
+        ExecStartPre=/usr/bin/wget -N -P /etc/grafana/ __GRAFANA_DB_URL__
+        ExecStartPre=/usr/bin/wget -N -P /etc/grafana/dashboards __GRAFANA_DASH_JSON_URL__
+        ExecStart=/usr/bin/docker run --rm --name grafana --net=host \
+                  -v /etc/grafana/:/etc/grafana/ \
+                  grafana/grafana
         [Install]
         WantedBy=multi-user.target
     - name: node-exporter.service

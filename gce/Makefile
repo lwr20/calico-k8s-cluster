@@ -1,22 +1,32 @@
 # Parameters for the cluster, don't edit these directly, put your changes in
 # local-settings.mk.
-CLUSTER_SIZE := 2
-ETCD_CLUSTER_SIZE := 3
-GCE_REGION=us-central1-f
-GCE_PROJECT=unique-caldron-775
-MASTER_INSTANCE_TYPE=n1-standard-16
-NODE_INSTANCE_TYPE=n1-highcpu-4
-ETCD_INSTANCE_TYPE=n1-standard-16
-PROM_INSTANCE_TYPE=n1-standard-4
-PREFIX=kube-scale
-NODE_IMAGE=calico/node:v0.19.0
+CLUSTER_SIZE:=2
+ETCD_CLUSTER_SIZE:=3
+GCE_REGION:=us-central1-f
+GCE_PROJECT:=unique-caldron-775
+GCE_IMAGE_NAME:=coreos-alpha-1010-1-0-v20160407
+MASTER_INSTANCE_TYPE:=n1-standard-16
+NODE_INSTANCE_TYPE:=n1-highcpu-4
+ETCD_INSTANCE_TYPE:=n1-standard-16
+PROM_INSTANCE_TYPE:=n1-standard-4
+PREFIX:=kube-scale
+NODE_IMAGE:=calico/node:v0.19.0
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
-# version).  "y" or "n".
-USE_UNPACKED_CNI_PLUGIN=n
-UNPACKED_CNI_PLUGIN_URL=https://transfer.sh/bw4hX/calico-cni.tgz
-PACKED_CNI_PLUGIN_URL=https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico
+# version).  "y" or "n".  Note: this URL is for an experimental, unreleased
+# version of the plugin.  The purpose of this flag is to test whether using
+# an unpacked version of the plugin improves scale.
+USE_UNPACKED_CNI_PLUGIN:=n
+UNPACKED_CNI_PLUGIN_URL:=https://storage.googleapis.com/calico-scale-testing-files/calico-cni-unpacked-a1c2749-libcalico-f0f9f33.tgz
+# URL of the standard (packed) version of the CNI plugin.
+PACKED_CNI_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/v1.3.0/calico
+# URL of pre-configured Grafana DB.  Currently, this is empty apart from
+# having Prometheus pre-configured as the default data source.
+GRAFANA_DB_URL:=https://storage.googleapis.com/calico-scale-testing-files/grafana.db
 
 -include local-settings.mk
+
+# GCE bucket we use to store files we need to transfer to hosts.
+GCE_BUCKET:=$(PREFIX)-data
 
 # Generate node names.
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
@@ -88,7 +98,6 @@ scale-pinger:
 pull-plugin-timings: $(LOG_RETRIEVAL_TARGETS)
 	grep TIMING timings/cni*.log > timings/all.timings
 	grep -v TIMING timings/cni*.log | grep -v INFO > timings/all.errors
-	# -ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 journalctl --no-pager >timings/master.log
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
@@ -102,6 +111,11 @@ $(LOG_RETRIEVAL_TARGETS): job%:
 .PHONEY: render-templates
 render-templates: $(TEMPLATED_OUTPUT)
 
+build/$(GCE_BUCKET).created:
+	-gsutil mb -p $(GCE_PROJECT) gs://$(GCE_BUCKET)
+	touch build/$(GCE_BUCKET).created
+
+# Download the packed CNI plugin binary.
 build/calico/calico:
 	mkdir -p build/calico
 	wget $(PACKED_CNI_PLUGIN_URL) -O build/calico/calico
@@ -111,23 +125,40 @@ build/calico-cni-unpacked.tgz:
 	rm -f build/calico-cni-unpacked.tgz;
 	wget $(UNPACKED_CNI_PLUGIN_URL) -O build/calico-cni-unpacked.tgz
 
-build/calico-cni.tgz: Makefile local-settings.mk local-settings.mk build/calico/calico build/calico-cni-unpacked.tgz
-	rm -f build/calico-cni.tgz;
-	if [ $(USE_UNPACKED_CNI_PLUGIN) = "y" ]; then \
-	  cp build/calico-cni-unpacked.tgz build/calico-cni.tgz; \
-	else \
-	  tar -czf build/calico-cni.tgz --directory build calico; \
-	fi
+# Takes the bare calico executable and packages it in a tgz so that its
+# structure matches the unpacked plugin.
+build/calico-cni-packed.tgz: Makefile local-settings.mk build/calico/calico
+	tar -czf build/calico-cni-packed.tgz --directory build calico
 
-.calico-cni-url: build/calico-cni.tgz
-	curl --upload-file build/calico-cni.tgz https://transfer.sh/calico-cni.tgz > .calico-cni-url
+.calico-cni-packed-url: build/calico-cni-packed.tgz build/$(GCE_BUCKET).created
+	gsutil cp build/calico-cni-packed.tgz gs://$(GCE_BUCKET)/calico-cni-packed.tgz
+	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/calico-cni-packed.tgz
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/calico-cni-packed.tgz" > .calico-cni-packed-url
+
+ifeq ($(USE_UNPACKED_CNI_PLUGIN), y)
+.calico-cni-url: Makefile local-settings.mk
+	echo "$(UNPACKED_CNI_PLUGIN_URL)" > .calico-cni-url
+else
+.calico-cni-url: .calico-cni-packed-url Makefile local-settings.mk
+	cp .calico-cni-packed-url .calico-cni-url
+endif
+
+.grafana-json-url: Makefile local-settings.mk templates/grafana.json
+	gsutil cp templates/grafana.json gs://$(GCE_BUCKET)/grafana-dash.json
+	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/grafana-dash.json
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/grafana-dash.json" > .grafana-json-url
+
+.prom-conf-url: Makefile local-settings.mk build/prometheus.yml
+	gsutil cp build/prometheus.yml gs://$(GCE_BUCKET)/prometheus.yml
+	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/prometheus.yml
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/prometheus.yml" > .prom-conf-url
 
 gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	-gcloud compute instances create \
 	  $(PREFIX)-master \
 	  --zone $(GCE_REGION) \
 	  --image-project coreos-cloud \
-	  --image coreos-alpha-1010-1-0-v20160407 \
+	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(MASTER_INSTANCE_TYPE) \
 	  --local-ssd interface=scsi \
 	  --metadata-from-file user-data=build/master-config-template.yaml
@@ -138,7 +169,7 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	  $(NODE_NAMES) \
 	  --zone $(GCE_REGION) \
 	  --image-project coreos-cloud \
-	  --image coreos-alpha-1010-1-0-v20160407 \
+	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(NODE_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/node-config-template.yaml \
 	  --no-address \
@@ -148,7 +179,7 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	  $(PREFIX)-prom \
 	  --image-project coreos-cloud \
 	  --zone $(GCE_REGION) \
-	  --image coreos-alpha-1010-1-0-v20160407 \
+	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(PROM_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/prom-config-template.yaml \
 	  --no-address \
@@ -158,20 +189,24 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	make --no-print-directory gce-forward-ports
 	#make --no-print-directory apply-node-labels
 
-build/%: templates/% Makefile local-settings.mk .calico-cni-url
+build/%: templates/% Makefile local-settings.mk .calico-cni-url .grafana-json-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
 	  sed "s~__ETCD_CLIENT_URLS__~$(ETCD_CLIENT_URLS)~g" | \
 	  sed "s~__ETCD_ENDPOINTS__~$(ETCD_ENDPOINTS)~g"  | \
 	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
+	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
 	  sed "s~__FELIXES__~$(PROM_FELIX_ENDPOINTS)~g" | \
 	  sed "s~__DRIVERS__~$(PROM_DRIVER_ENDPOINTS)~g" | \
 	  sed "s~__PROM_HOSTS__~$(PROM_HOST_ENDPOINTS)~g" | \
 	  sed "s~__PROM_ETCD_ENDPOINTS__~$(PROM_ETCD_ENDPOINTS)~g" | \
 	  sed "s~__PROM_ETCD_HOST_ENDPOINTS__~$(PROM_ETCD_HOST_ENDPOINTS)~g" | \
-	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g"  | \
-	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" > $@;
+	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
+	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" | \
+	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
+	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat .grafana-json-url)~g" | \
+	  sed "s~__PROMETHEUS_CONFIG_URL__~$$(cat .prom-conf-url)~g" > $@;
 
 build/etcd-%: build/etcd-template.yaml
 	node_name=`basename $@`; \
@@ -185,7 +220,7 @@ gce-create-etcd: $(ETCD_CONFIG_FILENAMES)
 	    $(PREFIX)-etcd-$$ii \
 	    --zone $(GCE_REGION) \
 	    --image-project coreos-cloud \
-	    --image coreos-alpha-1010-1-0-v20160407 \
+	    --image $(GCE_IMAGE_NAME) \
 	    --machine-type $(ETCD_INSTANCE_TYPE) \
 	    --local-ssd interface=scsi \
 	    --no-address \
@@ -203,7 +238,20 @@ gce-cleanup:
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
 	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) date; do echo "Trying to forward ports"; sleep 1; done'
-	ssh -o PasswordAuthentication=no -L 8080:localhost:8080 -L 2379:localhost:2379 -L 4194:localhost:4194 -L 9090:$(PREFIX)-prom:9090 -o LogLevel=quiet -nNT core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) &
+	ssh -o PasswordAuthentication=no \
+	    -L 8080:localhost:8080 \
+	    -L 2379:localhost:2379 \
+	    -L 4194:localhost:4194 \
+	    -L 9090:$(PREFIX)-prom:9090 \
+	    -L 3000:$(PREFIX)-prom:3000 \
+	    -o LogLevel=quiet -nNT \
+	    core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) &
+	@echo
+	@echo "Forwarded ports:"
+	@echo "- Grafana dashboard at http://localhost:3000/dashboard/file/grafana-dash.json"
+	@echo "- Prometheus at http://localhost:9090/"
+	@echo "- Kubernetes' etcd at http://localhost:2379/"
+	@echo "- Kubernetes' API at http://localhost:8080/"
 
 gce-redeploy: build/master-config-template.yaml build/node-config-template.yaml
 	gcloud compute instances add-metadata $(PREFIX)-master --metadata-from-file=user-data=build/master-config-template.yaml

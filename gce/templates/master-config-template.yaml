@@ -257,7 +257,7 @@ coreos:
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
         ExecStartPre=/usr/bin/mkdir -p /tmp/calico-cni-archive
-        ExecStartPre=/usr/bin/wget -N -P /tmp/calico-cni-archive __CNI_PLUGIN_URL__
+        ExecStartPre=/usr/bin/wget -O /tmp/calico-cni-archive/calico-cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni-archive/calico-cni.tgz
         ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
         ExecStartPre=/usr/bin/ln -fs /opt/calico/calico /opt/cni/bin/calico
@@ -334,7 +334,7 @@ coreos:
         [Service]
         TimeoutStartSec=0
         ExecStartPre=/usr/bin/wget -nc -P /tmp https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
-        ExecStartPre=/usr/bin/wget -nc -P /tmp __CNI_PLUGIN_URL__
+        ExecStartPre=/usr/bin/wget -O /tmp/calico-cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=-/usr/bin/docker kill mynginx
         ExecStartPre=-/usr/bin/docker rm mynginx
         ExecStartPre=/usr/bin/docker pull nginx
