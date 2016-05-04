@@ -89,7 +89,8 @@ coreos:
         ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni.tgz
         ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
         ExecStartPre=/usr/bin/ln -sf /opt/calico/calico /opt/cni/bin/calico
-        ExecStartPre=/usr/bin/docker pull caseydavenport/scale-tester:latest
+        ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/scale-tester
+        ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/scale-tester caseydavenport/scale-tester
         ExecStartPre=/usr/bin/docker pull gcr.io/google_containers/pause:0.8.0
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
@@ -134,7 +135,7 @@ coreos:
         Requires=docker.service
         [Service]
         ExecStart=/usr/bin/docker run --rm --name node-exporter \
-                    -p 9100:9100 --net="host" prom/node-exporter \
+                    -p 9100:9100 --net="host" __CLUSTER_PREFIX__-master:5000/node-exporter \
                     -collectors.enabled=filefd,diskstats,loadavg,meminfo,stat,time,vmstat
         Restart=always
         RestartSec=10

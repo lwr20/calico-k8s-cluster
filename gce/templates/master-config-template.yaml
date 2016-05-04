@@ -359,9 +359,15 @@ coreos:
         ExecStartPre=-/usr/bin/docker pull registry:2
         ExecStartPre=-/usr/bin/docker pull __NODE_IMAGE__
         ExecStartPre=-/usr/bin/docker tag __NODE_IMAGE__ __CLUSTER_PREFIX__-master:5000/calico-node
+        ExecStartPre=-/usr/bin/docker pull prom/node-exporter:latest
+        ExecStartPre=-/usr/bin/docker tag prom/node-exporter:latest __CLUSTER_PREFIX__-master:5000/node-exporter
+        ExecStartPre=-/usr/bin/docker pull caseydavenport/scale-tester:latest
+        ExecStartPre=-/usr/bin/docker tag caseydavenport/scale-tester:latest __CLUSTER_PREFIX__-master:5000/scale-tester
         ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
         ExecStartPost=/bin/sleep 5
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/calico-node
+        ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/node-exporter
+        ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/scale-tester
 
         [Install]
         WantedBy=multi-user.target
