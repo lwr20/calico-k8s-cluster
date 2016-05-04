@@ -1,0 +1,30 @@
+scrape_configs:
+- job_name: felix
+  scrape_interval: 10s
+  target_groups:
+  - targets: __FELIXES__
+  - targets: ["__CLUSTER_PREFIX__-master:9091"]
+- job_name: etcd-driver
+  scrape_interval: 10s
+  target_groups:
+  - targets: __DRIVERS__
+  - targets: ["__CLUSTER_PREFIX__-master:9092"]
+- job_name: etcd
+  scrape_interval: 10s
+  target_groups:
+  - targets: __PROM_ETCD_ENDPOINTS__
+- job_name: k8s-etcd
+  scrape_interval: 10s
+  target_groups:
+  - targets: ["__CLUSTER_PREFIX__-master:2379"]
+- job_name: k8s-api
+  scrape_interval: 10s
+  target_groups:
+  - targets: ["__CLUSTER_PREFIX__-master:8080"]
+- job_name: host
+  scrape_interval: 10s
+  target_groups:
+  - targets: __PROM_HOSTS__
+  - targets: __PROM_ETCD_HOST_ENDPOINTS__
+  - targets: ["__CLUSTER_PREFIX__-master:9100",
+              "__CLUSTER_PREFIX__-prom:9100"]

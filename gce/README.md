@@ -16,7 +16,7 @@ These instructions have been tested on Ubuntu 14.04.  They are likely to work wi
 * Make sure your cloud SDK is up-to-date: `gcloud components update`.
 * Create a GCE project, if you don't have one already and configure gcloud to us it.
 * `cd gce`
-* Create a file `local-settings.mk` with your preferred editor.  Review the settings at the top of `./Makefile` and tweak any copy any that you need to change over to `local-setting.mk`.  At the very least, you'll want to change `GCE_PROJECT` to the name of a GCE project that you control.
+* Create a file `local-settings.mk` with your preferred editor.  Review the settings at the top of `./Makefile`, copy any that you need to change over to `local-setting.mk` and edit them there.  At the very least, you'll want to change `GCE_PROJECT` to the name of a GCE project that you control.
 * Run
   * `make gce-create`, this runs several gcloud commands to start the Kubernetes cluster; then it uses ssh to forward various local ports to the cluster.
   * Configure Kuberenetes for the start of the test:
