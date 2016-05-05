@@ -132,17 +132,17 @@ build/calico-cni-unpacked.tgz:
 build/calico-cni-packed.tgz: Makefile local-settings.mk build/calico/calico
 	tar -czf build/calico-cni-packed.tgz --directory build calico
 
-build/calico-cni-packed-url: build/calico-cni-packed.tgz build/$(GCE_BUCKET).created
+.calico-cni-packed-url: build/calico-cni-packed.tgz build/$(GCE_BUCKET).created
 	gsutil cp build/calico-cni-packed.tgz gs://$(GCE_BUCKET)/calico-cni-packed.tgz
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/calico-cni-packed.tgz
-	echo "https://storage.googleapis.com/$(GCE_BUCKET)/calico-cni-packed.tgz" > build/calico-cni-packed-url
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/calico-cni-packed.tgz" > .calico-cni-packed-url
 
 ifeq ($(USE_UNPACKED_CNI_PLUGIN), y)
-build/calico-cni-url: Makefile local-settings.mk
-	echo "$(UNPACKED_CNI_PLUGIN_URL)" > build/calico-cni-url
+.calico-cni-url: Makefile local-settings.mk
+	echo "$(UNPACKED_CNI_PLUGIN_URL)" > .calico-cni-url
 else
-build/calico-cni-url: build/calico-cni-packed-url Makefile local-settings.mk
-	cp build/calico-cni-packed-url build/calico-cni-url
+.calico-cni-url: .calico-cni-packed-url Makefile local-settings.mk
+	cp .calico-cni-packed-url .calico-cni-url
 endif
 
 run-local-prom:
@@ -172,24 +172,24 @@ view-diags-stop:
 	docker stop prometheus
 	sudo rm -rf timings/etc
 
-build/grafana-json-url: Makefile local-settings.mk templates/grafana.json
+.grafana-json-url: Makefile local-settings.mk templates/grafana.json
 	gsutil cp templates/grafana.json gs://$(GCE_BUCKET)/grafana-dash.json
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/grafana-dash.json
-	echo "https://storage.googleapis.com/$(GCE_BUCKET)/grafana-dash.json" > build/grafana-json-url
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/grafana-dash.json" > .grafana-json-url
 
-build/prom-conf-url: Makefile local-settings.mk build/prometheus.yml
+.prom-conf-url: Makefile local-settings.mk build/prometheus.yml
 	gsutil cp build/prometheus.yml gs://$(GCE_BUCKET)/prometheus.yml
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/prometheus.yml
-	echo "https://storage.googleapis.com/$(GCE_BUCKET)/prometheus.yml" > build/prom-conf-url
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/prometheus.yml" > .prom-conf-url
 
 gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
-	make --no-print-directory deploy-master
-	make --no-print-directory deploy-etcd
-	make --no-print-directory deploy-nodes
-	make --no-print-directory deploy-prom
-	make --no-print-directory gce-config-ssh
-	make --no-print-directory gce-forward-ports
-	#make --no-print-directory apply-node-labels
+	$(MAKE) --no-print-directory deploy-master
+	$(MAKE) --no-print-directory deploy-etcd
+	$(MAKE) --no-print-directory deploy-nodes
+	$(MAKE) --no-print-directory deploy-prom
+	$(MAKE) --no-print-directory gce-config-ssh
+	$(MAKE) --no-print-directory gce-forward-ports
+	#$(MAKE) --no-print-directory apply-node-labels
 
 deploy-master:
 	-gcloud compute instances create \
@@ -235,18 +235,7 @@ deploy-prom:
 remove-prom:
 	gcloud compute instances delete --zone $(GCE_REGION) $(PREFIX)-prom
 
-# build/prometheus.yml needs its own templating to avoid a circular dependency.
-build/prometheus.yml: templates/prometheus.yml Makefile local-settings.mk
-	mkdir -p "$(@D)"
-	cat "$<" | \
-	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
-	  sed "s~__FELIXES__~$(PROM_FELIX_ENDPOINTS)~g" | \
-	  sed "s~__DRIVERS__~$(PROM_DRIVER_ENDPOINTS)~g" | \
-	  sed "s~__PROM_HOSTS__~$(PROM_HOST_ENDPOINTS)~g" | \
-	  sed "s~__PROM_ETCD_ENDPOINTS__~$(PROM_ETCD_ENDPOINTS)~g" | \
-	  sed "s~__PROM_ETCD_HOST_ENDPOINTS__~$(PROM_ETCD_HOST_ENDPOINTS)~g" > $@;
-
-build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafana-json-url build/prom-conf-url
+build/%: templates/% Makefile local-settings.mk .calico-cni-url .grafana-json-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
@@ -254,11 +243,16 @@ build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafa
 	  sed "s~__ETCD_ENDPOINTS__~$(ETCD_ENDPOINTS)~g"  | \
 	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
 	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
+	  sed "s~__FELIXES__~$(PROM_FELIX_ENDPOINTS)~g" | \
+	  sed "s~__DRIVERS__~$(PROM_DRIVER_ENDPOINTS)~g" | \
+	  sed "s~__PROM_HOSTS__~$(PROM_HOST_ENDPOINTS)~g" | \
+	  sed "s~__PROM_ETCD_ENDPOINTS__~$(PROM_ETCD_ENDPOINTS)~g" | \
+	  sed "s~__PROM_ETCD_HOST_ENDPOINTS__~$(PROM_ETCD_HOST_ENDPOINTS)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
-	  sed "s~__CNI_PLUGIN_URL__~$$(cat build/calico-cni-url)~g" | \
+	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" | \
 	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
-	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat build/grafana-json-url)~g" | \
-	  sed "s~__PROMETHEUS_CONFIG_URL__~$$(cat build/prom-conf-url)~g" > $@;
+	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat .grafana-json-url)~g" | \
+	  sed "s~__PROMETHEUS_CONFIG_URL__~$$(cat .prom-conf-url)~g" > $@;
 
 build/etcd-%: build/etcd-template.yaml
 	node_name=`basename $@`; \
