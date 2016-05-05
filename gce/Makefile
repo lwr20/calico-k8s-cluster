@@ -235,6 +235,17 @@ deploy-prom:
 remove-prom:
 	gcloud compute instances delete --zone $(GCE_REGION) $(PREFIX)-prom
 
+# build/prometheus.yml needs its own templating to avoid a circular dependency.
+build/prometheus.yml: templates/prometheus.yml Makefile local-settings.mk
+	mkdir -p "$(@D)"
+	cat "$<" | \
+	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
+	  sed "s~__FELIXES__~$(PROM_FELIX_ENDPOINTS)~g" | \
+	  sed "s~__DRIVERS__~$(PROM_DRIVER_ENDPOINTS)~g" | \
+	  sed "s~__PROM_HOSTS__~$(PROM_HOST_ENDPOINTS)~g" | \
+	  sed "s~__PROM_ETCD_ENDPOINTS__~$(PROM_ETCD_ENDPOINTS)~g" | \
+	  sed "s~__PROM_ETCD_HOST_ENDPOINTS__~$(PROM_ETCD_HOST_ENDPOINTS)~g" > $@;
+
 build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafana-json-url build/prom-conf-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
