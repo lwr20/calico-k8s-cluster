@@ -146,8 +146,11 @@ else
 endif
 
 run-local-prom:
-	wget -N -P $(CURRENT_DIR)/timings/ `cat .prom-conf-url`
-	tar -xvzf $(CURRENT_DIR)/timings/prom_data.tgz -C $(CURRENT_DIR)/timings/
+	# Prometheus needs a config file, but a blank one will do
+	echo "" > $(CURRENT_DIR)/timings/prometheus.yml
+	# Extract the prometheus data saved off from the cloud
+	-tar --overwrite -xvzf $(CURRENT_DIR)/timings/prom_data.tgz -C $(CURRENT_DIR)/timings/
+	# Run prometheus, using the extracted database.
 	/usr/bin/docker run --rm --name prometheus -p 9090:9090 -v $(CURRENT_DIR)/timings/prometheus.yml:/etc/prometheus.yml -v $(CURRENT_DIR)/timings/var/log/prom_data:/prometheus prom/prometheus -config.file=/etc/prometheus.yml -storage.local.path=/prometheus
 
 .grafana-json-url: Makefile local-settings.mk templates/grafana.json
