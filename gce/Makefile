@@ -56,9 +56,9 @@ OS := $(shell uname -s | tr A-Z a-z)
 # get current directory
 CURRENT_DIR := $(shell pwd)
 
-# Add on the etcd nodes and master
-NODE_NUMBERS += $(ETCD_NODE_SUFFIXES) master prom
-LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
+# Make a list of diags targets
+DIAGS_TARGETS := $(NODE_NUMBERS) $(ETCD_NODE_SUFFIXES) master prom
+LOG_RETRIEVAL_TARGETS := $(addprefix job,${DIAGS_TARGETS})
 PODS := 10000
 
 kubectl:
@@ -161,14 +161,15 @@ run-local-grafana:
 	docker run --rm --name grafana --net=host -v $(CURRENT_DIR)/timings/etc/grafana/:/etc/grafana/ grafana/grafana &
 
 view-diags:
-	make --no-print-directory run-local-prom
-	make --no-print-directory run-local-grafana
+	$(MAKE) --no-print-directory run-local-prom
+	$(MAKE) --no-print-directory run-local-grafana
 	sleep 2
 	@echo "- Grafana dashboard at http://localhost:3000/dashboard/file/grafana-dash.json"
 	@echo "- Prometheus at http://localhost:9090/"
 
 view-diags-stop:
-	docker stop $(shell docker ps -a -q)
+	docker stop grafana
+	docker stop prometheus
 	sudo rm -rf timings/etc
 
 .grafana-json-url: Makefile local-settings.mk templates/grafana.json
@@ -199,9 +200,9 @@ deploy-master:
 	  --machine-type $(MASTER_INSTANCE_TYPE) \
 	  --local-ssd interface=scsi \
 	  --metadata-from-file user-data=build/master-config-template.yaml
-		echo "Waiting for creation of master node to finish..."; \
-		wait; \
-		echo "master node started."
+	  echo "Waiting for creation of master node to finish..."; \
+	  wait; \
+	  echo "master node started."
 
 deploy-nodes:
 	-gcloud compute instances create \
@@ -213,9 +214,9 @@ deploy-nodes:
 	  --metadata-from-file user-data=build/node-config-template.yaml \
 	  --no-address \
 	  --tags no-ip
-		echo "Waiting for creation of worker nodes to finish..."; \
-		wait; \
-		echo "worker nodes started."
+	  echo "Waiting for creation of worker nodes to finish..."; \
+	  wait; \
+	  echo "worker nodes started."
 
 deploy-prom:
 	-gcloud compute instances create \
@@ -227,9 +228,9 @@ deploy-prom:
 	  --metadata-from-file user-data=build/prom-config-template.yaml \
 	  --no-address \
 	  --tags no-ip
-		echo "Waiting for creation of prometheus node to finish..."; \
-		wait; \
-		echo "prometheus node started."
+	  echo "Waiting for creation of prometheus node to finish..."; \
+	  wait; \
+	  echo "prometheus node started."
 
 remove-prom:
 	gcloud compute instances delete --zone $(GCE_REGION) $(PREFIX)-prom
