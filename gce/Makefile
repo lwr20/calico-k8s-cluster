@@ -235,7 +235,7 @@ deploy-prom:
 remove-prom:
 	gcloud compute instances delete --zone $(GCE_REGION) $(PREFIX)-prom
 
-build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafana-json-url
+build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafana-json-url build/prom-conf-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
