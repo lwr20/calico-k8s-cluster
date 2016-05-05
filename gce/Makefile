@@ -184,9 +184,9 @@ build/prom-conf-url: Makefile local-settings.mk build/prometheus.yml
 
 gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	$(MAKE) --no-print-directory deploy-master
+	$(MAKE) --no-print-directory deploy-prom
 	$(MAKE) --no-print-directory deploy-etcd
 	$(MAKE) --no-print-directory deploy-nodes
-	$(MAKE) --no-print-directory deploy-prom
 	$(MAKE) --no-print-directory gce-config-ssh
 	$(MAKE) --no-print-directory gce-forward-ports
 	#$(MAKE) --no-print-directory apply-node-labels
@@ -199,7 +199,7 @@ deploy-master:
 	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(MASTER_INSTANCE_TYPE) \
 	  --local-ssd interface=scsi \
-	  --metadata-from-file user-data=build/master-config-template.yaml
+	  --metadata-from-file user-data=build/master-config-template.yaml & \
 	  echo "Waiting for creation of master node to finish..."; \
 	  wait; \
 	  echo "master node started."
@@ -213,7 +213,7 @@ deploy-nodes:
 	  --machine-type $(NODE_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/node-config-template.yaml \
 	  --no-address \
-	  --tags no-ip
+	  --tags no-ip & \
 	  echo "Waiting for creation of worker nodes to finish..."; \
 	  wait; \
 	  echo "worker nodes started."
@@ -227,7 +227,7 @@ deploy-prom:
 	  --machine-type $(PROM_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/prom-config-template.yaml \
 	  --no-address \
-	  --tags no-ip
+	  --tags no-ip & \
 	  echo "Waiting for creation of prometheus node to finish..."; \
 	  wait; \
 	  echo "prometheus node started."
