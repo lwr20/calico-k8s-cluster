@@ -152,11 +152,17 @@ run-local-prom: build/prom-conf-url
 
 build/grafana-json-url: Makefile local-settings.mk templates/grafana.json
 	gsutil cp templates/grafana.json gs://$(GCE_BUCKET)/grafana-dash.json
+	gsutil setmeta \
+	  -h "Cache-Control:private, max-age=0, no-transform" \
+	  gs://$(GCE_BUCKET)/grafana-dash.json
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/grafana-dash.json
 	echo "https://storage.googleapis.com/$(GCE_BUCKET)/grafana-dash.json" > build/grafana-json-url
 
 build/prom-conf-url: Makefile local-settings.mk build/prometheus.yml
 	gsutil cp build/prometheus.yml gs://$(GCE_BUCKET)/prometheus.yml
+	gsutil setmeta \
+	  -h "Cache-Control:private, max-age=0, no-transform" \
+	  gs://$(GCE_BUCKET)/prometheus.yml
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/prometheus.yml
 	echo "https://storage.googleapis.com/$(GCE_BUCKET)/prometheus.yml" > build/prom-conf-url
 
