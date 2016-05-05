@@ -43,11 +43,15 @@ coreos:
 
         [Service]
         TimeoutStartSec=0
+        ExecStartPre=/usr/bin/mkdir -p /var/log/prom_data
         ExecStartPre=/usr/bin/wget -N -P /etc/ __PROMETHEUS_CONFIG_URL__
         ExecStart=/usr/bin/docker run --rm --name prometheus -p 9090:9090 \
                   -v /etc/prometheus.yml:/etc/prometheus.yml \
+                  -v /var/log/prom_data:/prometheus \
                   prom/prometheus \
-                  -config.file=/etc/prometheus.yml
+                  -config.file=/etc/prometheus.yml \
+                  -storage.local.path=/prometheus \
+                  -storage.local.checkpoint-interval=1m0s
 
         [Install]
         WantedBy=multi-user.target

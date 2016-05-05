@@ -16,7 +16,6 @@ spec:
         k8s-app: heapster
         kubernetes.io/cluster-service: "true"
     spec:
-      hostNetwork: true
       containers:
         - image: gcr.io/google_containers/heapster:v1.0.0
           name: heapster

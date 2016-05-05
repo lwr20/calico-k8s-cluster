@@ -43,6 +43,7 @@ coreos:
           content: |
             [Service]
             Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'
+            ExecStartPre=/usr/bin/rm -rf /var/lib/docker
     - name: etcd2.service
       command: start
     - name: fleet.service

@@ -62,6 +62,9 @@ kubectl:
 	wget http://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/$(OS)/amd64/kubectl
 	chmod +x kubectl
 
+calicoctl-status:
+	-ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 sudo ETCD_AUTHORITY=kube-scale-etcd-01:2379 calicoctl status
+
 calicoctl:
 	wget http://www.projectcalico.org/builds/calicoctl
 	chmod +x calicoctl
@@ -92,15 +95,14 @@ scale-pinger:
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 CLUSTER_SIZE=26 pull-plugin-timings
-pull-plugin-timings: $(LOG_RETRIEVAL_TARGETS)
-	grep TIMING timings/cni*.log > timings/all.timings
-	grep -v TIMING timings/cni*.log | grep -v INFO > timings/all.errors
+get-diags: $(LOG_RETRIEVAL_TARGETS)
+	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo tar -cvzf - /var/log/calico > timings/logs-$*.tgz
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log
+	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo tar -cvzf - /var/log/calico > timings/logs-$*.tgz &
+	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log &
+	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log &
 	-gcloud compute instances get-serial-port-output $(PREFIX)-$* > timings/serial-$*.log
 
 .PHONEY: $(LOG_RETRIEVAL_TARGETS)
@@ -265,7 +267,7 @@ gce-config-ssh:
 	gcloud compute config-ssh
 
 gce-ssh-master:
-	ssh core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT)
+	ssh -A core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT)
 
 gce-bgp-status:
 	ssh core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) /opt/bin/calicoctl status
