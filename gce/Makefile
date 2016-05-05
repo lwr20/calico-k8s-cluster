@@ -132,17 +132,17 @@ build/calico-cni-unpacked.tgz:
 build/calico-cni-packed.tgz: Makefile local-settings.mk build/calico/calico
 	tar -czf build/calico-cni-packed.tgz --directory build calico
 
-.calico-cni-packed-url: build/calico-cni-packed.tgz build/$(GCE_BUCKET).created
+build/calico-cni-packed-url: build/calico-cni-packed.tgz build/$(GCE_BUCKET).created
 	gsutil cp build/calico-cni-packed.tgz gs://$(GCE_BUCKET)/calico-cni-packed.tgz
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/calico-cni-packed.tgz
-	echo "https://storage.googleapis.com/$(GCE_BUCKET)/calico-cni-packed.tgz" > .calico-cni-packed-url
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/calico-cni-packed.tgz" > build/calico-cni-packed-url
 
 ifeq ($(USE_UNPACKED_CNI_PLUGIN), y)
-.calico-cni-url: Makefile local-settings.mk
-	echo "$(UNPACKED_CNI_PLUGIN_URL)" > .calico-cni-url
+build/calico-cni-url: Makefile local-settings.mk
+	echo "$(UNPACKED_CNI_PLUGIN_URL)" > build/calico-cni-url
 else
-.calico-cni-url: .calico-cni-packed-url Makefile local-settings.mk
-	cp .calico-cni-packed-url .calico-cni-url
+build/calico-cni-url: build/calico-cni-packed-url Makefile local-settings.mk
+	cp build/calico-cni-packed-url build/calico-cni-url
 endif
 
 run-local-prom:
@@ -235,7 +235,7 @@ deploy-prom:
 remove-prom:
 	gcloud compute instances delete --zone $(GCE_REGION) $(PREFIX)-prom
 
-build/%: templates/% Makefile local-settings.mk .calico-cni-url .grafana-json-url
+build/%: templates/% Makefile local-settings.mk build/calico-cni-url .grafana-json-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
@@ -249,7 +249,7 @@ build/%: templates/% Makefile local-settings.mk .calico-cni-url .grafana-json-ur
 	  sed "s~__PROM_ETCD_ENDPOINTS__~$(PROM_ETCD_ENDPOINTS)~g" | \
 	  sed "s~__PROM_ETCD_HOST_ENDPOINTS__~$(PROM_ETCD_HOST_ENDPOINTS)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
-	  sed "s~__CNI_PLUGIN_URL__~$$(cat .calico-cni-url)~g" | \
+	  sed "s~__CNI_PLUGIN_URL__~$$(cat build/calico-cni-url)~g" | \
 	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
 	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat .grafana-json-url)~g" | \
 	  sed "s~__PROMETHEUS_CONFIG_URL__~$$(cat .prom-conf-url)~g" > $@;
