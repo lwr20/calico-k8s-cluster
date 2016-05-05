@@ -53,8 +53,11 @@ PROM_ETCD_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-etcd-%02d:9
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
 
+# get current directory
+CURRENT_DIR := $(shell pwd)
+
 # Add on the etcd nodes and master
-NODE_NUMBERS += $(ETCD_NODE_SUFFIXES) master
+NODE_NUMBERS += $(ETCD_NODE_SUFFIXES) master prom
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
 PODS := 10000
 
@@ -94,7 +97,7 @@ scale-pinger:
 	kubectl scale --replicas=10000 rc/pinger
 
 # See http://stackoverflow.com/a/12110773/61318
-#make -j12 CLUSTER_SIZE=26 pull-plugin-timings
+#make -j12 get-diags
 get-diags: $(LOG_RETRIEVAL_TARGETS)
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
@@ -142,6 +145,11 @@ build/calico-cni-url: build/calico-cni-packed-url Makefile local-settings.mk
 	cp build/calico-cni-packed-url build/calico-cni-url
 endif
 
+run-local-prom:
+	wget -N -P $(CURRENT_DIR)/timings/ `cat .prom-conf-url`
+	tar -xvzf $(CURRENT_DIR)/timings/prom_data.tgz -C $(CURRENT_DIR)/timings/
+	/usr/bin/docker run --rm --name prometheus -p 9090:9090 -v $(CURRENT_DIR)/timings/prometheus.yml:/etc/prometheus.yml -v $(CURRENT_DIR)/timings/var/log/prom_data:/prometheus prom/prometheus -config.file=/etc/prometheus.yml -storage.local.path=/prometheus
+
 build/grafana-json-url: Makefile local-settings.mk templates/grafana.json
 	gsutil cp templates/grafana.json gs://$(GCE_BUCKET)/grafana-dash.json
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/grafana-dash.json
@@ -153,6 +161,15 @@ build/prom-conf-url: Makefile local-settings.mk build/prometheus.yml
 	echo "https://storage.googleapis.com/$(GCE_BUCKET)/prometheus.yml" > build/prom-conf-url
 
 gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
+	make --no-print-directory deploy-master
+	make --no-print-directory deploy-etcd
+	make --no-print-directory deploy-nodes
+	make --no-print-directory deploy-prom
+	make --no-print-directory gce-config-ssh
+	make --no-print-directory gce-forward-ports
+	#make --no-print-directory apply-node-labels
+
+deploy-master:
 	-gcloud compute instances create \
 	  $(PREFIX)-master \
 	  --zone $(GCE_REGION) \
@@ -161,10 +178,12 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	  --machine-type $(MASTER_INSTANCE_TYPE) \
 	  --local-ssd interface=scsi \
 	  --metadata-from-file user-data=build/master-config-template.yaml
+		echo "Waiting for creation of master node to finish..."; \
+		wait; \
+		echo "master node started."
 
-	make --no-print-directory gce-create-etcd
-
-	gcloud compute instances create \
+deploy-nodes:
+	-gcloud compute instances create \
 	  $(NODE_NAMES) \
 	  --zone $(GCE_REGION) \
 	  --image-project coreos-cloud \
@@ -173,8 +192,12 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	  --metadata-from-file user-data=build/node-config-template.yaml \
 	  --no-address \
 	  --tags no-ip
+		echo "Waiting for creation of worker nodes to finish..."; \
+		wait; \
+		echo "worker nodes started."
 
-	gcloud compute instances create \
+deploy-prom:
+	-gcloud compute instances create \
 	  $(PREFIX)-prom \
 	  --image-project coreos-cloud \
 	  --zone $(GCE_REGION) \
@@ -183,10 +206,12 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	  --metadata-from-file user-data=build/prom-config-template.yaml \
 	  --no-address \
 	  --tags no-ip
+		echo "Waiting for creation of prometheus node to finish..."; \
+		wait; \
+		echo "prometheus node started."
 
-	make --no-print-directory gce-config-ssh
-	make --no-print-directory gce-forward-ports
-	#make --no-print-directory apply-node-labels
+remove-prom:
+	gcloud compute instances delete --zone $(GCE_REGION) $(PREFIX)-prom
 
 # build/prometheus.yml needs its own templating to avoid a circular dependency.
 build/prometheus.yml: templates/prometheus.yml Makefile local-settings.mk
@@ -218,7 +243,7 @@ build/etcd-%: build/etcd-template.yaml
 	  cat build/etcd-template.yaml | \
 	    sed "s/__ETCD_NODE_NAME__/$$node_name/g" > $@;
 
-gce-create-etcd: $(ETCD_CONFIG_FILENAMES)
+deploy-etcd: $(ETCD_CONFIG_FILENAMES)
 	for ii in ${ETCD_NODE_NUMBERS}; do \
 	  echo "Starting $(PREFIX)-etcd-$$ii"; \
 	  gcloud compute instances create \
