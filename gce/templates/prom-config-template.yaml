@@ -44,7 +44,7 @@ coreos:
         [Service]
         TimeoutStartSec=0
         ExecStartPre=/usr/bin/mkdir -p /var/log/prom_data
-        ExecStartPre=/usr/bin/wget -N -P /etc/ __PROMETHEUS_CONFIG_URL__
+        ExecStartPre=/usr/bin/wget -O /etc/prometheus.yml __PROMETHEUS_CONFIG_URL__
         ExecStart=/usr/bin/docker run --rm --name prometheus -p 9090:9090 \
                   -v /etc/prometheus.yml:/etc/prometheus.yml \
                   -v /var/log/prom_data:/prometheus \

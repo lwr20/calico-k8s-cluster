@@ -3,12 +3,20 @@ scrape_configs:
   scrape_interval: 10s
   target_groups:
   - targets: __FELIXES__
+    labels:
+      node_type: compute
   - targets: ["__CLUSTER_PREFIX__-master:9091"]
+    labels:
+      node_type: k8s_master
 - job_name: etcd-driver
   scrape_interval: 10s
   target_groups:
   - targets: __DRIVERS__
+    labels:
+      node_type: compute
   - targets: ["__CLUSTER_PREFIX__-master:9092"]
+    labels:
+      node_type: k8s_master
 - job_name: etcd
   scrape_interval: 10s
   target_groups:
@@ -25,6 +33,15 @@ scrape_configs:
   scrape_interval: 10s
   target_groups:
   - targets: __PROM_HOSTS__
+    labels:
+      node_type: compute
   - targets: __PROM_ETCD_HOST_ENDPOINTS__
-  - targets: ["__CLUSTER_PREFIX__-master:9100",
-              "__CLUSTER_PREFIX__-prom:9100"]
+    labels:
+      node_type: etcd
+  - targets: ["__CLUSTER_PREFIX__-master:9100"]
+    labels:
+      node_type: k8s_master
+  - targets: ["__CLUSTER_PREFIX__-prom:9100"]
+    labels:
+      node_type: prom
+
