@@ -56,9 +56,9 @@ OS := $(shell uname -s | tr A-Z a-z)
 # get current directory
 CURRENT_DIR := $(shell pwd)
 
-# Add on the etcd nodes and master
-NODE_NUMBERS += $(ETCD_NODE_SUFFIXES) master prom
-LOG_RETRIEVAL_TARGETS := $(addprefix job,${NODE_NUMBERS})
+# Make a list of diags targets
+DIAGS_TARGETS := $(NODE_NUMBERS) $(ETCD_NODE_SUFFIXES) master prom
+LOG_RETRIEVAL_TARGETS := $(addprefix job,${DIAGS_TARGETS})
 PODS := 10000
 
 kubectl:
@@ -145,10 +145,32 @@ build/calico-cni-url: build/calico-cni-packed-url Makefile local-settings.mk
 	cp build/calico-cni-packed-url build/calico-cni-url
 endif
 
-run-local-prom: build/prom-conf-url
-	wget -N -P $(CURRENT_DIR)/timings/ `cat build/prom-conf-url`
-	tar -xvzf $(CURRENT_DIR)/timings/prom_data.tgz -C $(CURRENT_DIR)/timings/
-	/usr/bin/docker run --rm --name prometheus -p 9090:9090 -v $(CURRENT_DIR)/timings/prometheus.yml:/etc/prometheus.yml -v $(CURRENT_DIR)/timings/var/log/prom_data:/prometheus prom/prometheus -config.file=/etc/prometheus.yml -storage.local.path=/prometheus
+run-local-prom:
+	# Prometheus needs a config file, but a blank one will do
+	echo "" > $(CURRENT_DIR)/timings/prometheus.yml
+	# Extract the prometheus data saved off from the cloud
+	-tar --overwrite -xvzf $(CURRENT_DIR)/timings/prom_data.tgz -C $(CURRENT_DIR)/timings/
+	# Run prometheus, using the extracted database.
+	docker run --rm --name prometheus -p 9090:9090 -v $(CURRENT_DIR)/timings/prometheus.yml:/etc/prometheus.yml -v $(CURRENT_DIR)/timings/var/log/prom_data:/prometheus prom/prometheus -config.file=/etc/prometheus.yml -storage.local.path=/prometheus &
+
+run-local-grafana:
+	mkdir -p $(CURRENT_DIR)/timings/etc/grafana/dashboards
+	cp local_grafana.ini $(CURRENT_DIR)/timings/etc/grafana/grafana.ini
+	wget -N -P $(CURRENT_DIR)/timings/etc/grafana/ $(GRAFANA_DB_URL)
+	cp templates/grafana.json $(CURRENT_DIR)/timings/etc/grafana/dashboards/grafana-dash.json
+	docker run --rm --name grafana --net=host -v $(CURRENT_DIR)/timings/etc/grafana/:/etc/grafana/ grafana/grafana &
+
+view-diags:
+	$(MAKE) --no-print-directory run-local-prom
+	$(MAKE) --no-print-directory run-local-grafana
+	sleep 2
+	@echo "- Grafana dashboard at http://localhost:3000/dashboard/file/grafana-dash.json"
+	@echo "- Prometheus at http://localhost:9090/"
+
+view-diags-stop:
+	docker stop grafana
+	docker stop prometheus
+	sudo rm -rf timings/etc
 
 build/grafana-json-url: Makefile local-settings.mk templates/grafana.json
 	gsutil cp templates/grafana.json gs://$(GCE_BUCKET)/grafana-dash.json
@@ -167,13 +189,13 @@ build/prom-conf-url: Makefile local-settings.mk build/prometheus.yml
 	echo "https://storage.googleapis.com/$(GCE_BUCKET)/prometheus.yml" > build/prom-conf-url
 
 gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
-	make --no-print-directory deploy-master
-	make --no-print-directory deploy-etcd
-	make --no-print-directory deploy-nodes
-	make --no-print-directory deploy-prom
-	make --no-print-directory gce-config-ssh
-	make --no-print-directory gce-forward-ports
-	#make --no-print-directory apply-node-labels
+	$(MAKE) --no-print-directory deploy-master
+	$(MAKE) --no-print-directory deploy-prom
+	$(MAKE) --no-print-directory deploy-etcd
+	$(MAKE) --no-print-directory deploy-nodes
+	$(MAKE) --no-print-directory gce-config-ssh
+	$(MAKE) --no-print-directory gce-forward-ports
+	#$(MAKE) --no-print-directory apply-node-labels
 
 deploy-master:
 	-gcloud compute instances create \
@@ -183,10 +205,10 @@ deploy-master:
 	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(MASTER_INSTANCE_TYPE) \
 	  --local-ssd interface=scsi \
-	  --metadata-from-file user-data=build/master-config-template.yaml
-		echo "Waiting for creation of master node to finish..."; \
-		wait; \
-		echo "master node started."
+	  --metadata-from-file user-data=build/master-config-template.yaml & \
+	  echo "Waiting for creation of master node to finish..."; \
+	  wait; \
+	  echo "master node started."
 
 deploy-nodes:
 	-gcloud compute instances create \
@@ -197,10 +219,10 @@ deploy-nodes:
 	  --machine-type $(NODE_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/node-config-template.yaml \
 	  --no-address \
-	  --tags no-ip
-		echo "Waiting for creation of worker nodes to finish..."; \
-		wait; \
-		echo "worker nodes started."
+	  --tags no-ip & \
+	  echo "Waiting for creation of worker nodes to finish..."; \
+	  wait; \
+	  echo "worker nodes started."
 
 deploy-prom:
 	-gcloud compute instances create \
@@ -211,10 +233,10 @@ deploy-prom:
 	  --machine-type $(PROM_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/prom-config-template.yaml \
 	  --no-address \
-	  --tags no-ip
-		echo "Waiting for creation of prometheus node to finish..."; \
-		wait; \
-		echo "prometheus node started."
+	  --tags no-ip & \
+	  echo "Waiting for creation of prometheus node to finish..."; \
+	  wait; \
+	  echo "prometheus node started."
 
 remove-prom:
 	gcloud compute instances delete --zone $(GCE_REGION) $(PREFIX)-prom
