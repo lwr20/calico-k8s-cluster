@@ -168,13 +168,15 @@ view-diags:
 	@echo "- Prometheus at http://localhost:9090/"
 
 view-diags-stop:
-	docker stop grafana
-	docker stop prometheus
+	-docker stop grafana
+	-docker stop prometheus
 	sudo rm -rf timings/etc
 
-build/grafana-json-url: Makefile local-settings.mk
-	tar -cvzf templates/dashboards.tgz -C templates/dashboards/ .
-	gsutil cp templates/dashboards.tgz gs://$(GCE_BUCKET)/dashboards.tgz
+build/dashboards.tgz:
+	tar -cvzf build/dashboards.tgz -C templates/dashboards/ .
+
+build/grafana-json-url: Makefile local-settings.mk templates/dashboards/*.json build/dashboards.tgz
+	gsutil cp build/dashboards.tgz gs://$(GCE_BUCKET)/dashboards.tgz
 	gsutil setmeta \
 	  -h "Cache-Control:private, max-age=0, no-transform" \
 	  gs://$(GCE_BUCKET)/dashboards.tgz
