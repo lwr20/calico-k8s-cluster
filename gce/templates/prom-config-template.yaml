@@ -68,6 +68,7 @@ coreos:
         ExecStartPre=/usr/bin/mkdir -p /etc/grafana/dashboards
         ExecStartPre=/usr/bin/wget -N -P /etc/grafana/ __GRAFANA_DB_URL__
         ExecStartPre=/usr/bin/wget -N -P /etc/grafana/dashboards __GRAFANA_DASH_JSON_URL__
+        ExecStartPre=/usr/bin/tar -xvzf /etc/grafana/dashboards/dashboards.tgz -C /etc/grafana/dashboards
         ExecStart=/usr/bin/docker run --rm --name grafana --net=host \
                   -v /etc/grafana/:/etc/grafana/ \
                   grafana/grafana

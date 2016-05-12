@@ -157,7 +157,7 @@ run-local-grafana:
 	mkdir -p $(CURRENT_DIR)/timings/etc/grafana/dashboards
 	cp local_grafana.ini $(CURRENT_DIR)/timings/etc/grafana/grafana.ini
 	wget -N -P $(CURRENT_DIR)/timings/etc/grafana/ $(GRAFANA_DB_URL)
-	cp templates/grafana.json $(CURRENT_DIR)/timings/etc/grafana/dashboards/grafana-dash.json
+	cp templates/dashboards/* $(CURRENT_DIR)/timings/etc/grafana/dashboards/
 	docker run --rm --name grafana --net=host -v $(CURRENT_DIR)/timings/etc/grafana/:/etc/grafana/ grafana/grafana &
 
 view-diags:
@@ -168,17 +168,20 @@ view-diags:
 	@echo "- Prometheus at http://localhost:9090/"
 
 view-diags-stop:
-	docker stop grafana
-	docker stop prometheus
+	-docker stop grafana
+	-docker stop prometheus
 	sudo rm -rf timings/etc
 
-build/grafana-json-url: Makefile local-settings.mk templates/grafana.json
-	gsutil cp templates/grafana.json gs://$(GCE_BUCKET)/grafana-dash.json
+build/dashboards.tgz:
+	tar -cvzf build/dashboards.tgz -C templates/dashboards/ .
+
+build/grafana-json-url: Makefile local-settings.mk templates/dashboards/*.json build/dashboards.tgz
+	gsutil cp build/dashboards.tgz gs://$(GCE_BUCKET)/dashboards.tgz
 	gsutil setmeta \
 	  -h "Cache-Control:private, max-age=0, no-transform" \
-	  gs://$(GCE_BUCKET)/grafana-dash.json
-	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/grafana-dash.json
-	echo "https://storage.googleapis.com/$(GCE_BUCKET)/grafana-dash.json" > build/grafana-json-url
+	  gs://$(GCE_BUCKET)/dashboards.tgz
+	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/dashboards.tgz
+	echo "https://storage.googleapis.com/$(GCE_BUCKET)/dashboards.tgz" > build/grafana-json-url
 
 build/prom-conf-url: Makefile local-settings.mk build/prometheus.yml
 	gsutil cp build/prometheus.yml gs://$(GCE_BUCKET)/prometheus.yml
