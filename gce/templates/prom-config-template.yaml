@@ -65,7 +65,7 @@ coreos:
         ExecStartPre=/usr/bin/tar -xvzf /etc/grafana/dashboards/dashboards.tgz -C /etc/grafana/dashboards
         ExecStart=/usr/bin/docker run --rm --name grafana --net=host \
                   -v /etc/grafana/:/etc/grafana/ \
-                  grafana/grafana
+                  grafana/grafana:3.0.1
         [Install]
         WantedBy=multi-user.target
     - name: node-exporter.service
