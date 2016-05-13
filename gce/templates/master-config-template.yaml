@@ -114,9 +114,6 @@ coreos:
     listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
     listen-peer-urls: http://0.0.0.0:2380
     data-dir: /mnt/ssd/etcd2
-  fleet:
-    metadata: "role=master"
-    etcd_servers: "http://$private_ipv4:2379"
   units:
     - name: "docker.service"
       drop-ins:
@@ -165,8 +162,6 @@ coreos:
         Type=oneshot
         RemainAfterExit=yes
         ExecStart=/usr/bin/chmod 777 /mnt/ssd
-    - name: fleet.service
-      command: start
     - name: kube-apiserver.service
       command: start
       content: |

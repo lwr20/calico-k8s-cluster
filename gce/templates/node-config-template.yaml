@@ -31,9 +31,6 @@ coreos:
     proxy: on
     listen-client-urls: http://127.0.0.1:2379
     initial-cluster: __ETCD_PEER_URLS__
-  fleet:
-    metadata: "role=node"
-    etcd_servers: "http://127.0.0.1:2379"
   update:
     reboot-strategy: off
   units:
@@ -45,8 +42,6 @@ coreos:
             Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'
             ExecStartPre=/usr/bin/rm -rf /var/lib/docker
     - name: etcd2.service
-      command: start
-    - name: fleet.service
       command: start
     - name: calico-node.service
       runtime: true
