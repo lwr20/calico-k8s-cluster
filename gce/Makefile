@@ -98,7 +98,9 @@ scale-pinger:
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 get-diags
-get-diags: $(LOG_RETRIEVAL_TARGETS)
+get-diags: describe-nodes describe-pods get-prom-data $(LOG_RETRIEVAL_TARGETS) 
+
+get-prom-data:
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 $(LOG_RETRIEVAL_TARGETS): job%:
@@ -108,9 +110,15 @@ $(LOG_RETRIEVAL_TARGETS): job%:
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log &
 	-gcloud compute instances get-serial-port-output $(PREFIX)-$* > timings/serial-$*.log
 
-.PHONEY: $(LOG_RETRIEVAL_TARGETS)
+describe-nodes:
+	-kubectl describe nodes > timings/describe-nodes.log
 
-.PHONEY: render-templates
+describe-pods:
+	-kubectl describe pods > timings/describe-pods.log
+
+.PHONY: $(LOG_RETRIEVAL_TARGETS)
+
+.PHONY: render-templates
 render-templates: $(TEMPLATED_OUTPUT)
 
 build/$(GCE_BUCKET).created:
