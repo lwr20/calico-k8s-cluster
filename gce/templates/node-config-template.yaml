@@ -64,6 +64,7 @@ coreos:
         ExecStartPre=/usr/bin/wget -N -P /opt/bin http://__CLUSTER_PREFIX__-master/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-node
+        ExecStartPre=/opt/bin/calicoctl config felix PrometheusMetricsEnabled true --force
         ExecStart=/opt/bin/calicoctl node --node-image=__CLUSTER_PREFIX__-master:5000/calico-node --detach=false
         Restart=always
         RestartSec=10
