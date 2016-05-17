@@ -226,7 +226,7 @@ coreos:
         User=root
         Environment=ETCD_ENDPOINTS=__ETCD_ENDPOINTS__
         PermissionsStartOnly=true
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
+        ExecStartPre=/usr/bin/wget -nc -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/opt/bin/calicoctl pool add 192.168.0.0/16 --ipip --nat-outgoing
         ExecStart=/opt/bin/calicoctl node --detach=false --node-image=__NODE_IMAGE__
