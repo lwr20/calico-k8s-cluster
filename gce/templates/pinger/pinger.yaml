@@ -26,4 +26,4 @@ spec:
         command:
         - /bin/sh 
         - -c 
-        - 'wget -T 10 -q -O - kube-scale-master:8080 || wget -T 10 -q -O - kube-scale-master:8080 || wget -T 10 -q -O - kube-scale-master:8080 || exit;sleep 99999'
+        - 'wget -T 10 -q -O - __CLUSTER_PREFIX__-master:8080 || wget -T 10 -q -O - __CLUSTER_PREFIX__-master:8080 || wget -T 10 -q -O - __CLUSTER_PREFIX__-master:8080 || exit;sleep 99999'

@@ -4,27 +4,27 @@ write_files:
   # Need to configure localhost since GCE doesn't do it for us.
   # Specifically, the leader election container requires localhost
   # to resolve to 127.0.0.1
-  - path: /etc/hosts 
+  - path: /etc/hosts
     owner: root
     permissions: 0644
     content: |
       127.0.0.1    localhost
 
   # Network config file for the Calico CNI plugin.
-  - path: /etc/cni/net.d/10-calico.conf 
+  - path: /etc/cni/net.d/10-calico.conf
     owner: root
     permissions: 0755
     content: |
       {
           "name": "calico-k8s-network",
           "type": "calico",
-          "etcd_endpoints": "http://kube-scale-etcd-01:2379,http://kube-scale-etcd-02:2379,http://kube-scale-etcd-03:2379",
+          "etcd_endpoints": "__ETCD_ENDPOINTS__",
           "log_level": "info",
           "ipam": {
               "type": "calico-ipam"
           },
           "policy": {
-              "type": "default-deny-inbound",
+              "type": "k8s",
               "k8s_api_root": "http://127.0.0.1:8080/api/v1/"
           }
       }
@@ -61,14 +61,14 @@ write_files:
           # The Calico policy agent.
           - name: k8s-policy-agent
             image: calico/k8s-policy-agent:latest
-            imagePullPolicy: IfNotPresent 
+            imagePullPolicy: IfNotPresent
             env:
               # Modify ETCD_ENDPOINTS to match your etcd cluster.
               - name: ETCD_ENDPOINTS
-                value: "http://kube-scale-etcd-01.c.unique-caldron-775.internal:2379,http://kube-scale-etcd-02.c.unique-caldron-775.internal:2379,http://kube-scale-etcd-03.c.unique-caldron-775.internal:2379"
+                value: "__ETCD_ENDPOINTS__"
               - name: K8S_API
                 value: "http://127.0.0.1:8080"
-              - name: LEADER_ELECTION 
+              - name: LEADER_ELECTION
                 value: "true"
           # Leader election container used by the policy agent.
           - name: leader-elector
@@ -91,14 +91,14 @@ write_files:
       apiVersion: net.alpha.kubernetes.io/v1alpha1
       metadata:
         namespace: default
-        name: nginx-service 
+        name: nginx-service
       spec:
         podSelector:
-          k8s-app: nginx-server 
+          k8s-app: nginx-server
         ingress:
           - from:
               - pods:
-                  role: getter 
+                  role: getter
             ports:
               - protocol: TCP
                 port: 80
@@ -123,7 +123,7 @@ coreos:
         - name: "50-insecure-registry.conf"
           content: |
             [Service]
-            Environment=DOCKER_OPTS='--insecure-registry="kube-scale-master:5000"'
+            Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'
     - name: "etcd2.service"
       command: "start"
       drop-ins:
@@ -226,15 +226,15 @@ coreos:
         Description=calicoctl node
         After=docker.service
         Requires=docker.service
-        
+
         [Service]
         User=root
-        Environment=ETCD_ENDPOINTS=http://kube-scale-etcd-01:2379,http://kube-scale-etcd-02:2379,http://kube-scale-etcd-03:2379
+        Environment=ETCD_ENDPOINTS=__ETCD_ENDPOINTS__
         PermissionsStartOnly=true
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.18.0/calicoctl
+        ExecStartPre=/usr/bin/wget -nc -P /opt/bin https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/opt/bin/calicoctl pool add 192.168.0.0/16 --ipip --nat-outgoing
-        ExecStart=/opt/bin/calicoctl node --detach=false
+        ExecStart=/opt/bin/calicoctl node --detach=false --node-image=__NODE_IMAGE__
         Restart=always
         RestartSec=10
 
@@ -249,13 +249,18 @@ coreos:
         Description=Kubernetes Kubelet
         Documentation=https://github.com/kubernetes/kubernetes
         After=docker.service
+        After=etcd2.service
+        After=calico-node.service
         Requires=docker.service
 
         [Service]
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
-        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico  
-        ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico
+        ExecStartPre=/usr/bin/mkdir -p /tmp/calico-cni-archive
+        ExecStartPre=/usr/bin/wget -O /tmp/calico-cni-archive/calico-cni.tgz __CNI_PLUGIN_URL__
+        ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni-archive/calico-cni.tgz
+        ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
+        ExecStartPre=/usr/bin/ln -fs /opt/calico/calico /opt/cni/bin/calico
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \
@@ -295,7 +300,7 @@ coreos:
         RestartSec=10
 
     # Installs the NetworkPolicy object used in the scale test.
-    - name: install-policy.service 
+    - name: install-policy.service
       command: start
       content: |
         [Unit]
@@ -328,8 +333,8 @@ coreos:
 
         [Service]
         TimeoutStartSec=0
-        ExecStartPre=/usr/bin/wget -nc -P /tmp https://github.com/projectcalico/calico-containers/releases/download/v0.18.0/calicoctl
-        ExecStartPre=/usr/bin/wget -nc -P /tmp https://circle-artifacts.com/gh/projectcalico/calico-cni/154/artifacts/0/home/ubuntu/calico-cni/dist/calico  
+        ExecStartPre=/usr/bin/wget -nc -P /tmp https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl
+        ExecStartPre=/usr/bin/wget -O /tmp/calico-cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=-/usr/bin/docker kill mynginx
         ExecStartPre=-/usr/bin/docker rm mynginx
         ExecStartPre=/usr/bin/docker pull nginx
@@ -352,11 +357,29 @@ coreos:
         ExecStartPre=-/usr/bin/docker kill registry
         ExecStartPre=-/usr/bin/docker rm registry
         ExecStartPre=-/usr/bin/docker pull registry:2
-        ExecStartPre=-/usr/bin/docker pull calico/node:v0.18.0
-        ExecStartPre=-/usr/bin/docker tag calico/node:v0.18.0 kube-scale-master:5000/calico-node
+        ExecStartPre=-/usr/bin/docker pull __NODE_IMAGE__
+        ExecStartPre=-/usr/bin/docker tag __NODE_IMAGE__ __CLUSTER_PREFIX__-master:5000/calico-node
+        ExecStartPre=-/usr/bin/docker pull prom/node-exporter:latest
+        ExecStartPre=-/usr/bin/docker tag prom/node-exporter:latest __CLUSTER_PREFIX__-master:5000/node-exporter
+        ExecStartPre=-/usr/bin/docker pull caseydavenport/scale-tester:latest
+        ExecStartPre=-/usr/bin/docker tag caseydavenport/scale-tester:latest __CLUSTER_PREFIX__-master:5000/scale-tester
         ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
         ExecStartPost=/bin/sleep 5
-        ExecStartPost=/usr/bin/docker push kube-scale-master:5000/calico-node
+        ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/calico-node
+        ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/node-exporter
+        ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/scale-tester
 
         [Install]
         WantedBy=multi-user.target
+
+    - name: node-exporter.service
+      command: start
+      content: |
+        [Unit]
+        Description=Prometheus node statistics exporter
+        After=docker.service
+        Requires=docker.service
+        [Service]
+        ExecStart=/usr/bin/docker run --rm --name node-exporter -p 9100:9100 --net="host" prom/node-exporter
+        Restart=always
+        RestartSec=10

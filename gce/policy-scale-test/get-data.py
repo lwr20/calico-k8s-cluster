@@ -6,13 +6,21 @@ import subprocess
 import re
 import Queue
 import datetime
+import time
 import threading
 from dateutil import parser
 from subprocess import check_output
 
+SAVE_GRAPHS = True
+DISPLAY_GRAPHS = False
+
+filename_prefix = time.strftime("%Y%m%d-%H%M%S")
+
 # Various regexes.
-queue_time_re = re.compile("INFO \('default', '(.*)'\) time on the queue: ([0-9\.]+)")
-proc_time_re = re.compile("INFO \('default', '(.*)'\) total process time: ([0-9]+\.[0-9]+)")
+queue_time_re = re.compile(
+    "INFO \('default', '(.*)'\) time on the queue: ([0-9\.]+)")
+proc_time_re = re.compile(
+    "INFO \('default', '(.*)'\) total process time: ([0-9]+\.[0-9]+)")
 start_re = re.compile("Started: ([0-9]+\.[0-9]+)")
 end_re = re.compile("Completed: ([0-9]+\.[0-9]+)")
 elapsed_re = re.compile("Elapsed: ([0-9]+\.[0-9]+)")
@@ -35,6 +43,7 @@ agent_process_times = []
 pod_names_q = Queue.Queue()
 pod_logs_q = Queue.Queue()
 
+
 def collect_data():
     # Get all pod names in calico-system.
     print "Getting all pods in calico-system namespace"
@@ -42,7 +51,6 @@ def collect_data():
                              "pods", "--namespace=calico-system",
                              "-o", "json"])
     all_pods = json.loads(all_pods)["items"]
-    pod = all_pods[0]
 
     # Get calico-k8s-policy-agent pod metadata.
     pod_name = str(all_pods[0]["metadata"]["name"])
@@ -50,7 +58,8 @@ def collect_data():
     # Extract logs.
     print "Getting calico policy agent logs"
     calico_logs = check_output(["kubectl", "logs", "--namespace=calico-system",
-                                 pod_name, "-c", "k8s-policy-agent"])
+                                pod_name, "-c", "k8s-policy-agent"])
+    write_data("calico-system", all_pods)
 
     # Extract queue / total processing times from the logs.
     queue_times = queue_time_re.findall(calico_logs)
@@ -76,8 +85,8 @@ def collect_data():
     all_pods = json.loads(all_pods)["items"]
 
     # Get all "getter" pod names.
-    pods = {str(p["metadata"]["name"]): p for p in all_pods
-                    if "getter" in p["metadata"]["name"]}
+    pods = {str(p["metadata"]["name"]): p for p in all_pods if "getter" in
+            p["metadata"]["name"]}
 
     print "Generating queue of pod names"
     for pod_name, pod in pods.iteritems():
@@ -91,9 +100,10 @@ def collect_data():
                 break
 
             try:
-                print "Getting logs for %s (remaining: %s)" % (pod_name, pod_names_q.qsize())
+                print "Getting logs for %s (remaining: %s)" % (
+                    pod_name, pod_names_q.qsize())
                 logs = check_output(["kubectl", "logs", pod_name])
-            except subprocess.CalledProcessError, e:
+            except subprocess.CalledProcessError:
                 print "Error getting logs for: %s" % pod_name
                 continue
             else:
@@ -114,7 +124,7 @@ def collect_data():
     logs_by_pod = {}
     while True:
         try:
-            pod_name, logs =  pod_logs_q.get_nowait()
+            pod_name, logs = pod_logs_q.get_nowait()
         except Queue.Empty:
             break
         else:
@@ -122,14 +132,13 @@ def collect_data():
 
     print "Parsing results"
     for pod_name, logs in logs_by_pod.iteritems():
-        print "Pod %s \n%s" % (pod_name, logs)
+        print "Pod %s \n%s" % (pod_name, logs.splitlines()[-5:])
         pod = pods.get(pod_name)
         try:
             # Format: 2016-04-11T21:04:15Z
             fmt = "%Y-%m-%dT%H:%M:%SZ"
             start_dt = pod["status"]["startTime"]
             start_time = datetime.datetime.strptime(start_dt, fmt)
-            #start_time = float(start_re.findall(logs)[0])
         except IndexError:
             print "pod has not started yet: %s" % pod_name
             failed.append((pod, logs, None))
@@ -165,6 +174,7 @@ def collect_data():
                 "raw": pod
         })
 
+
 def display_data():
     # Extract data to display.
     start_times = []
@@ -188,7 +198,11 @@ def display_data():
     pylab.hist(vals)
     pylab.xlabel('time to first connectivity')
     pylab.ylabel('Number of pods')
-    pylab.show()
+    if SAVE_GRAPHS:
+        pylab.savefig('testdata/%s_ttfp_relative.png' % filename_prefix,
+                      bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
     # Calculate start times, shifted to account
     # for the first pod to start.
@@ -203,7 +217,7 @@ def display_data():
     average = sum(elapsed_times) / len(elapsed_times)
 
     # Print out some data.
-    startup_time = (ordered_start_times[-1] - ordered_start_times[0]).seconds
+    startup_time = (max_x - min_x).seconds
     print "Time to start %s pods: %s (%s pods/s)" % (len(x),
                                                      startup_time,
                                                      len(x)/startup_time)
@@ -214,13 +228,21 @@ def display_data():
     pylab.plot(x, elapsed_times, 'bo')
     pylab.xlabel('time(s)')
     pylab.ylabel('Time to first connectivity (s)')
-    pylab.show()
+    if SAVE_GRAPHS:
+        pylab.savefig('testdata/%s_ttfp_absolute.png' % filename_prefix,
+                      bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
     if agent_process_times:
         # Plot agent process time versus pod started time.
         pylab.plot(x, agent_process_times, "ro")
         pylab.xlabel('pod start time')
         pylab.ylabel('Time spent in agent')
+    if SAVE_GRAPHS:
+        pylab.savefig('testdata/%s_agent_time.png' % filename_prefix,
+                      bbox_inches='tight')
+    if DISPLAY_GRAPHS:
         pylab.show()
 
     # Plot queue length over time, compared with total
@@ -237,14 +259,20 @@ def display_data():
 
     pylab.xlabel('time')
     pylab.ylabel('Agent Queue Length')
-    pylab.show()
+    if SAVE_GRAPHS:
+        pylab.savefig('testdata/%s_agent_q_length.png' % filename_prefix,
+                      bbox_inches='tight')
+    if DISPLAY_GRAPHS:
+        pylab.show()
 
-def write_data():
+
+def write_data(filename, data):
     # Write to file.
-    filename = "%s-pods-%s" % (len(elapsed_times), datetime.datetime.now())
-    print "Writing results to file: %s" % filename
+    filename = "%s_%s" % (filename_prefix, filename)
+    print "Writing to file: %s" % filename
+    check_output(["mkdir", "-p", "testdata"])
     with open("testdata/%s" % filename, "a") as f:
-        f.write(json.dumps(data_by_pod))
+        f.write(json.dumps(data))
 
 if __name__ == "__main__":
     collect_data()

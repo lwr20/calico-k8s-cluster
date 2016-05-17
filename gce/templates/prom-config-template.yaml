@@ -1,0 +1,87 @@
+#cloud-config
+---
+write_files:
+  # Network config file for the Calico CNI plugin.
+  - path: /etc/grafana/grafana.ini
+    owner: root
+    permissions: 0655
+    content: |
+      [dashboards.json]
+      enabled=true
+      path=/etc/grafana/dashboards
+
+      [auth.anonymous]
+      enabled=true
+
+      [paths]
+      data=/etc/grafana/
+      logs=/var/log/grafana
+      home=/usr/share/grafana
+coreos:
+
+  fleet:
+    metadata: "role=node"
+    etcd_servers: "http://127.0.0.1:2379"
+  update:
+    reboot-strategy: off
+  units:
+    - name: "docker.service"
+      drop-ins:
+        - name: "50-insecure-registry.conf"
+          content: |
+            [Service]
+            Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'
+    - name: fleet.service
+      command: start
+    - name: prom.service
+      command: start
+      content: |
+        [Unit]
+        Description=Prometheus
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        TimeoutStartSec=0
+        ExecStartPre=/usr/bin/mkdir -p /var/log/prom_data
+        ExecStartPre=/usr/bin/wget -O /etc/prometheus.yml __PROMETHEUS_CONFIG_URL__
+        ExecStart=/usr/bin/docker run --rm --name prometheus -p 9090:9090 \
+                  -v /etc/prometheus.yml:/etc/prometheus.yml \
+                  -v /var/log/prom_data:/prometheus \
+                  prom/prometheus \
+                  -config.file=/etc/prometheus.yml \
+                  -storage.local.path=/prometheus \
+                  -storage.local.checkpoint-interval=1m0s
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: grafana.service
+      command: start
+      content: |
+        [Unit]
+        Description=Grafana dashboard
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        TimeoutStartSec=0
+        ExecStartPre=/usr/bin/mkdir -p /etc/grafana/dashboards
+        ExecStartPre=/usr/bin/wget -N -P /etc/grafana/ __GRAFANA_DB_URL__
+        ExecStartPre=/usr/bin/wget -N -P /etc/grafana/dashboards __GRAFANA_DASH_JSON_URL__
+        ExecStartPre=/usr/bin/tar -xvzf /etc/grafana/dashboards/dashboards.tgz -C /etc/grafana/dashboards
+        ExecStart=/usr/bin/docker run --rm --name grafana --net=host \
+                  -v /etc/grafana/:/etc/grafana/ \
+                  grafana/grafana:3.0.1
+        [Install]
+        WantedBy=multi-user.target
+    - name: node-exporter.service
+      command: start
+      content: |
+        [Unit]
+        Description=Prometheus node statistics exporter
+        After=docker.service
+        Requires=docker.service
+        [Service]
+        ExecStart=/usr/bin/docker run --rm --name node-exporter -p 9100:9100 --net="host" prom/node-exporter
+        Restart=always
+        RestartSec=10

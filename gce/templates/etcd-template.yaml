@@ -14,8 +14,8 @@ coreos:
   update:
     reboot-strategy: off
   etcd2:
-    name: etcd-02
-    initial-cluster: etcd-00=http://kube-scale-etcd-01:2380,etcd-01=http://kube-scale-etcd-02:2380,etcd-02=http://kube-scale-etcd-03:2380
+    name: __ETCD_NODE_NAME__
+    initial-cluster: __ETCD_PEER_URLS__
     initial-cluster-state: new
     initial-cluster-token: etcd-cluster-1
     advertise-client-urls: http://$private_ipv4:2379
@@ -65,3 +65,14 @@ coreos:
         Type=oneshot
         RemainAfterExit=yes
         ExecStart=/usr/bin/chmod 777 /mnt/ssd
+    - name: node-exporter.service
+      command: start
+      content: |
+        [Unit]
+        Description=Prometheus node statistics exporter
+        After=docker.service
+        Requires=docker.service
+        [Service]
+        ExecStart=/usr/bin/docker run --rm --name node-exporter -p 9100:9100 --net="host" prom/node-exporter
+        Restart=always
+        RestartSec=10
