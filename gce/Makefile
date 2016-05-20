@@ -99,13 +99,13 @@ scale-pinger:
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 get-diags
-get-diags: describe-nodes describe-pods describe-services describe-rc describe-ep get-prom-data get-pod-logs $(LOG_RETRIEVAL_TARGETS)
+get-diags: describe-nodes describe-pods describe-services describe-rc describe-ep get-prom-data $(LOG_RETRIEVAL_TARGETS) get-pod-logs
 
 get-prom-data:
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 get-pod-logs:
-	-kubectl get pods | grep getter | cut -f 1 -d " " | xargs -iPOD sh -c 'kubectl logs POD > timings/POD.log'
+	-kubectl get pods | grep getter | cut -f 1 -d " " | xargs -iPOD sh -c 'kubectl logs POD > timings/POD.log &'
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
