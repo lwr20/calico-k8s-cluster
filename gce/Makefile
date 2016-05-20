@@ -58,7 +58,7 @@ OS := $(shell uname -s | tr A-Z a-z)
 CURRENT_DIR := $(shell pwd)
 
 # Make a list of diags targets
-DIAGS_TARGETS := $(NODE_NUMBERS) $(ETCD_NODE_SUFFIXES) master prom
+DIAGS_TARGETS := $(NODE_NUMBERS) $(ETCD_NODE_SUFFIXES) master prom rr1 rr2
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${DIAGS_TARGETS})
 PODS := 10000
 
@@ -99,10 +99,13 @@ scale-pinger:
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 get-diags
-get-diags: describe-nodes describe-pods describe-services describe-rc describe-ep get-prom-data $(LOG_RETRIEVAL_TARGETS)
+get-diags: describe-nodes describe-pods describe-services describe-rc describe-ep get-prom-data get-pod-logs $(LOG_RETRIEVAL_TARGETS)
 
 get-prom-data:
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
+
+get-pod-logs:
+	-kubectl get pods | grep getter | cut -f 1 -d " " | xargs -iPOD sh -c 'kubectl logs POD > timings/POD.log'
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
@@ -244,8 +247,8 @@ deploy-nodes:
 	  --tags no-ip & \
 	  echo "Waiting for creation of this batch of worker nodes to finish..."; \
 		wait; \
-		echo "Batch of nodes created. Waiting 180s for cluster to settle down..."; \
-	  sleep 180;'
+		echo "Batch of nodes created. Waiting 120s for cluster to settle down..."; \
+	  sleep 120;'
 
 deploy-prom:
 	-gcloud compute instances create \
