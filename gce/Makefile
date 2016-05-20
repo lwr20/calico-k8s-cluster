@@ -9,6 +9,7 @@ MASTER_INSTANCE_TYPE:=n1-standard-16
 NODE_INSTANCE_TYPE:=n1-highcpu-4
 ETCD_INSTANCE_TYPE:=n1-standard-16
 PROM_INSTANCE_TYPE:=n1-standard-4
+RR_INSTANCE_TYPE:=n1-standard-4
 PREFIX:=kube-scale
 NODE_IMAGE:=calico/node:v0.19.0
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
@@ -98,7 +99,7 @@ scale-pinger:
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 get-diags
-get-diags: describe-nodes describe-pods get-prom-data $(LOG_RETRIEVAL_TARGETS) 
+get-diags: describe-nodes describe-pods describe-services describe-rc describe-ep get-prom-data $(LOG_RETRIEVAL_TARGETS)
 
 get-prom-data:
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
@@ -115,6 +116,15 @@ describe-nodes:
 
 describe-pods:
 	-kubectl describe pods > timings/describe-pods.log
+
+describe-services:
+	-kubectl describe services > timings/describe-services.log
+
+describe-rc:
+	-kubectl describe rc > timings/describe-rc.log
+
+describe-ep:
+	-kubectl describe ep > timings/describe-ep.log
 
 .PHONY: $(LOG_RETRIEVAL_TARGETS)
 
@@ -204,6 +214,7 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	$(MAKE) --no-print-directory deploy-prom
 	$(MAKE) --no-print-directory deploy-etcd
 	$(MAKE) --no-print-directory deploy-nodes
+	$(MAKE) --no-print-directory deploy-rr
 	$(MAKE) --no-print-directory gce-config-ssh
 	$(MAKE) --no-print-directory gce-forward-ports
 	#$(MAKE) --no-print-directory apply-node-labels
@@ -222,8 +233,8 @@ deploy-master:
 	  echo "master node started."
 
 deploy-nodes:
-	-gcloud compute instances create \
-	  $(NODE_NAMES) \
+	echo $(NODE_NAMES) | xargs -n250 | xargs -I{} sh -c 'gcloud compute instances create \
+	  {} \
 	  --zone $(GCE_REGION) \
 	  --image-project coreos-cloud \
 	  --image $(GCE_IMAGE_NAME) \
@@ -231,9 +242,10 @@ deploy-nodes:
 	  --metadata-from-file user-data=build/node-config-template.yaml \
 	  --no-address \
 	  --tags no-ip & \
-	  echo "Waiting for creation of worker nodes to finish..."; \
-	  wait; \
-	  echo "worker nodes started."
+	  echo "Waiting for creation of this batch of worker nodes to finish..."; \
+		wait; \
+		echo "Batch of nodes created. Waiting 180s for cluster to settle down..."; \
+	  sleep 180;'
 
 deploy-prom:
 	-gcloud compute instances create \
@@ -248,6 +260,20 @@ deploy-prom:
 	  echo "Waiting for creation of prometheus node to finish..."; \
 	  wait; \
 	  echo "prometheus node started."
+
+deploy-rr:
+	-gcloud compute instances create \
+	  $(PREFIX)-rr1 $(PREFIX)-rr2  \
+	  --image-project coreos-cloud \
+	  --zone $(GCE_REGION) \
+	  --image $(GCE_IMAGE_NAME) \
+	  --machine-type $(RR_INSTANCE_TYPE) \
+	  --metadata-from-file user-data=build/rr-template.yaml \
+	  --no-address \
+	  --tags no-ip & \
+	  echo "Waiting for creation of route reflector node to finish..."; \
+	  wait; \
+	  echo "route reflector node started."
 
 remove-prom:
 	gcloud compute instances delete --zone $(GCE_REGION) $(PREFIX)-prom

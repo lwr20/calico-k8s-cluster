@@ -358,11 +358,14 @@ coreos:
         ExecStartPre=-/usr/bin/docker tag prom/node-exporter:latest __CLUSTER_PREFIX__-master:5000/node-exporter
         ExecStartPre=-/usr/bin/docker pull caseydavenport/scale-tester:latest
         ExecStartPre=-/usr/bin/docker tag caseydavenport/scale-tester:latest __CLUSTER_PREFIX__-master:5000/scale-tester
+        ExecStartPre=-/usr/bin/docker pull calico/routereflector:latest
+        ExecStartPre=-/usr/bin/docker tag calico/routereflector:latest __CLUSTER_PREFIX__-master:5000/routereflector
         ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
         ExecStartPost=/bin/sleep 5
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/calico-node
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/node-exporter
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/scale-tester
+        ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/routereflector
 
         [Install]
         WantedBy=multi-user.target
