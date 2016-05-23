@@ -333,17 +333,19 @@ coreos:
       content: |
         [Unit]
         Description=Nginx
-        Requires=calico-node.service
-        After=calico-node.service
+        Requires=docker.service
+        After=docker.service
 
         [Service]
-        TimeoutStartSec=0
+        ExecStartPre=/usr/bin/test -f /opt/bin/calicoctl
         ExecStartPre=/usr/bin/cp /opt/bin/calicoctl /tmp/calicoctl
         ExecStartPre=/usr/bin/wget -O /tmp/calico-cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=-/usr/bin/docker kill mynginx
         ExecStartPre=-/usr/bin/docker rm mynginx
         ExecStartPre=/usr/bin/docker pull nginx
         ExecStart=/usr/bin/docker run --name mynginx -p 80:80 -v /tmp:/usr/share/nginx/html:ro -d nginx
+        Restart=on-failure
+        RestartSec=10
 
         [Install]
         WantedBy=multi-user.target
