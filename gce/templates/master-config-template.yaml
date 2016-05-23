@@ -338,7 +338,7 @@ coreos:
 
         [Service]
         ExecStartPre=/usr/bin/test -f /opt/bin/calicoctl
-        ExecStartPre=/usr/bin/cp /opt/bin/calicoctl /tmp/calicoctl
+        ExecStartPre=/usr/bin/ln -s /opt/bin/calicoctl /tmp/calicoctl
         ExecStartPre=/usr/bin/wget -O /tmp/calico-cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=-/usr/bin/docker kill mynginx
         ExecStartPre=-/usr/bin/docker rm mynginx
