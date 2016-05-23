@@ -105,13 +105,12 @@ get-prom-data:
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 get-pod-logs:
-	-kubectl get pods | grep getter | cut -f 1 -d " " | xargs -iPOD sh -c 'kubectl logs POD > timings/POD.log &'
+	-kubectl get pods | grep getter | cut -f 1 -d " " | xargs -iPOD sh -c 'kubectl logs POD | gzip > timings/POD.log.gz &'
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo tar -cvzf - /var/log/calico > timings/logs-$*.tgz &
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* cat /var/log/calico/cni/cni.log > timings/cni-$*.log &
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log &
+	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo /home/core/getcdiags.sh > timings/diags-$*.tgz &
 	-gcloud compute instances get-serial-port-output $(PREFIX)-$* > timings/serial-$*.log
 
 describe-nodes:
