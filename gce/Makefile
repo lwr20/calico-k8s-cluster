@@ -12,6 +12,10 @@ PROM_INSTANCE_TYPE:=n1-standard-4
 RR_INSTANCE_TYPE:=n1-standard-4
 PREFIX:=kube-scale
 NODE_IMAGE:=calico/node:v0.19.0
+GETTER_IMAGE:=caseydavenport/scale-tester:latest
+# Number of nginx pod instances to create
+NGINX_INSTANCES:=$(shell echo ${CLUSTER_SIZE}/10 + 1 | bc)
+
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".  Note: this URL is for an experimental, unreleased
 # version of the plugin.  The purpose of this flag is to test whether using
@@ -96,6 +100,16 @@ remove-pinger:
 
 scale-pinger:
 	kubectl scale --replicas=10000 rc/pinger
+
+deploy-getter:
+	# Make sure policy is applied by attempting to create it again
+	-cd $(CURRENT_DIR)/policy-scale-test && ./policy create -f nginx-policy.yaml
+	# Create all the namespaces and RCs
+	cd $(CURRENT_DIR)/policy-scale-test && ./start.sh
+	kubectl scale rc nginx-server --replicas=$(NGINX_INSTANCES)
+
+test:
+	echo $(NGINX_INSTANCES)
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 get-diags
@@ -215,8 +229,8 @@ gce-create: kubectl calicoctl $(TEMPLATED_OUTPUT)
 	$(MAKE) --no-print-directory deploy-master
 	$(MAKE) --no-print-directory deploy-prom
 	$(MAKE) --no-print-directory deploy-etcd
-	$(MAKE) --no-print-directory deploy-nodes
 	$(MAKE) --no-print-directory deploy-rr
+	$(MAKE) --no-print-directory deploy-nodes
 	$(MAKE) --no-print-directory gce-config-ssh
 	$(MAKE) --no-print-directory gce-forward-ports
 	#$(MAKE) --no-print-directory apply-node-labels
@@ -300,6 +314,7 @@ build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafa
 	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
 	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
+	  sed "s~__GETTER_IMAGE__~$(NODE_IMAGE)~g" | \
 	  sed "s~__CNI_PLUGIN_URL__~$$(cat build/calico-cni-url)~g" | \
 	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
 	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat build/grafana-json-url)~g" | \

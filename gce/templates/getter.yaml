@@ -1,21 +1,21 @@
 apiVersion: v1
 kind: ReplicationController
 metadata:
-  name: getter 
+  name: getter
 spec:
-  replicas: 0 
+  replicas: 0
   selector:
-    role: getter 
+    role: getter
   template:
     metadata:
       labels:
-        role: getter 
+        role: getter
     spec:
       containers:
-      - name: getter 
-        image: caseydavenport/scale-tester
+      - name: getter
+        image: __CLUSTER_PREFIX__-master:5000/scale-tester
         env:
         - name: TIMEOUT
           value: ".1"
-        - name: SLEEPTIME 
+        - name: SLEEPTIME
           value: "0"

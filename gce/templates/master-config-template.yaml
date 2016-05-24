@@ -1,6 +1,22 @@
 #cloud-config
 ---
 write_files:
+  # nginx config
+  - path: /etc/nginxconfig
+    owner: root
+    permissions: 0755
+    content: |
+      events {
+        worker_connections  1024;
+      }
+      http {
+        disable_symlinks off;
+        server {
+          root /usr/share/nginx/html;
+          location / {
+          }
+        }
+      }
   # Diags collection helper script:
   - path: /home/core/getcdiags.sh
     owner: root
@@ -338,12 +354,12 @@ coreos:
 
         [Service]
         ExecStartPre=/usr/bin/test -f /opt/bin/calicoctl
-        ExecStartPre=/usr/bin/ln -s /opt/bin/calicoctl /tmp/calicoctl
+        ExecStartPre=-/usr/bin/ln -s /opt/bin/calicoctl /tmp/calicoctl
         ExecStartPre=/usr/bin/wget -O /tmp/calico-cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=-/usr/bin/docker kill mynginx
         ExecStartPre=-/usr/bin/docker rm mynginx
         ExecStartPre=/usr/bin/docker pull nginx
-        ExecStart=/usr/bin/docker run --name mynginx -p 80:80 -v /tmp:/usr/share/nginx/html:ro -d nginx
+        ExecStart=/usr/bin/docker run --name mynginx -p 80:80 -v /tmp:/usr/share/nginx/html:ro -v /etc/nginxconfig:/etc/nginx/nginx.conf:ro -v /opt/bin:/opt/bin:ro -d nginx
         Restart=on-failure
         RestartSec=10
 
@@ -368,8 +384,8 @@ coreos:
         ExecStartPre=-/usr/bin/docker tag __NODE_IMAGE__ __CLUSTER_PREFIX__-master:5000/calico-node
         ExecStartPre=-/usr/bin/docker pull prom/node-exporter:latest
         ExecStartPre=-/usr/bin/docker tag prom/node-exporter:latest __CLUSTER_PREFIX__-master:5000/node-exporter
-        ExecStartPre=-/usr/bin/docker pull caseydavenport/scale-tester:latest
-        ExecStartPre=-/usr/bin/docker tag caseydavenport/scale-tester:latest __CLUSTER_PREFIX__-master:5000/scale-tester
+        ExecStartPre=-/usr/bin/docker pull __GETTER_IMAGE__
+        ExecStartPre=-/usr/bin/docker tag __GETTER_IMAGE__ __CLUSTER_PREFIX__-master:5000/scale-tester
         ExecStartPre=-/usr/bin/docker pull calico/routereflector:latest
         ExecStartPre=-/usr/bin/docker tag calico/routereflector:latest __CLUSTER_PREFIX__-master:5000/routereflector
         ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
