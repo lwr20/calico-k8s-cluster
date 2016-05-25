@@ -14,8 +14,6 @@ RR_INSTANCE_TYPE:=n1-standard-4
 PREFIX:=kube-scale
 NODE_IMAGE:=calico/node:v0.19.0
 GETTER_IMAGE:=caseydavenport/scale-tester:latest
-# Number of nginx pod instances to create
-NGINX_INSTANCES:=$(shell echo ${CLUSTER_SIZE}/10 + 1 | bc)
 
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".  Note: this URL is for an experimental, unreleased
@@ -33,6 +31,8 @@ GRAFANA_DB_URL:=https://storage.googleapis.com/calico-scale-testing-files/grafan
 
 # GCE bucket we use to store files we need to transfer to hosts.
 GCE_BUCKET:=$(PREFIX)-data
+# Number of nginx pod instances to create
+NGINX_INSTANCES:=$(shell echo ${CLUSTER_SIZE}/10 + 1 | bc)
 
 # Generate node names.
 NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
@@ -65,7 +65,6 @@ CURRENT_DIR := $(shell pwd)
 # Make a list of diags targets
 DIAGS_TARGETS := $(NODE_NUMBERS) $(ETCD_NODE_SUFFIXES) master prom rr1 rr2
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${DIAGS_TARGETS})
-PODS := 10000
 
 kubectl:
 	wget http://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/$(OS)/amd64/kubectl
@@ -107,13 +106,19 @@ prepare-getter:
 	-cd $(CURRENT_DIR)/policy-scale-test && ./policy create -f nginx-policy.yaml
 	# Create all the namespaces and RCs
 	cd $(CURRENT_DIR)/policy-scale-test && ./start.sh
+	$(MAKE) --no-print-directory scale-nginx
+
+scale-nginx:
 	kubectl scale rc nginx-server --replicas=$(NGINX_INSTANCES)
 	echo 'Now use make "gce-successful-pods" to check they are all running'
 
-test-getter:
+scale-getter:
 	echo 'Scaling up number of getter pods to $(NUM_PODS)'
 	kubectl scale rc getter --replicas=$(NUM_PODS)
-	echo 'Now use make "gce-successful-pods" to check they are all running'
+	echo 'Now use "make gce-successful-pods" to check they are all running'
+
+get-results:
+	bash -c 'source ../env/bin/activate && cd $(CURRENT_DIR)/policy-scale-test && python get-data.py | tee testdata/result.txt'
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 get-diags
@@ -399,4 +404,4 @@ gce-failed-pods:
 	kubectl get po |grep -v Pending |grep -v Running
 
 gce-wait-for-pod-creation:
-	bash -c 'while [ $$(kubectl get po | grep -P -c "1/1\s+Running\s+0") -ne $(PODS) ] ;  do date; echo "Not enough nodes created - waiting"; kubectl describe rc |grep "Pods Status"; sleep 1;done'
+	bash -c 'while [ $$(kubectl get po | grep -P -c "1/1\s+Running\s+0") -ne $(NUM_PODS) ] ;  do date; echo "Not enough nodes created - waiting"; kubectl describe rc |grep "Pods Status"; sleep 1;done'
