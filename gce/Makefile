@@ -2,6 +2,7 @@
 # local-settings.mk.
 CLUSTER_SIZE:=2
 ETCD_CLUSTER_SIZE:=3
+NUM_PODS:=300
 GCE_REGION:=us-central1-f
 GCE_PROJECT:=unique-caldron-775
 GCE_IMAGE_NAME:=coreos-alpha-1010-1-0-v20160407
@@ -101,15 +102,18 @@ remove-pinger:
 scale-pinger:
 	kubectl scale --replicas=10000 rc/pinger
 
-deploy-getter:
+prepare-getter:
 	# Make sure policy is applied by attempting to create it again
 	-cd $(CURRENT_DIR)/policy-scale-test && ./policy create -f nginx-policy.yaml
 	# Create all the namespaces and RCs
 	cd $(CURRENT_DIR)/policy-scale-test && ./start.sh
 	kubectl scale rc nginx-server --replicas=$(NGINX_INSTANCES)
+	echo 'Now use make "gce-successful-pods" to check they are all running'
 
-test:
-	echo $(NGINX_INSTANCES)
+test-getter:
+	echo 'Scaling up number of getter pods to $(NUM_PODS)'
+	kubectl scale rc getter --replicas=$(NUM_PODS)
+	echo 'Now use make "gce-successful-pods" to check they are all running'
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 get-diags
@@ -314,7 +318,7 @@ build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafa
 	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
 	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
-	  sed "s~__GETTER_IMAGE__~$(NODE_IMAGE)~g" | \
+	  sed "s~__GETTER_IMAGE__~$(GETTER_IMAGE)~g" | \
 	  sed "s~__CNI_PLUGIN_URL__~$$(cat build/calico-cni-url)~g" | \
 	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
 	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat build/grafana-json-url)~g" | \
