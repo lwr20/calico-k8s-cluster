@@ -44,6 +44,7 @@ write_files:
         echo "Started RR"
 
         # Disable bird logging, which is too verbose by default.
+        # See https://github.com/projectcalico/calico-bird/issues/19
         docker exec -t rr bash -c 'sed -i "s/debug all/debug off/" /templates/*'
         while ! docker exec -t rr birdc -s /etc/service/bird/bird.ctl debug all off ;
         do

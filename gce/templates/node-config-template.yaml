@@ -7,6 +7,8 @@ write_files:
     permissions: 0755
     content: |
       #!/bin/bash
+      # Last line of calicoctl diags looks like this:
+      # "  curl --upload-file /tmp/tmpRACajJ/diags-260516_123004.tar.gz https://transfer.sh/diags-260516_123004.tar.gz"
       FILE=`calicoctl diags | tail -1 | cut -f 5 -d " "`
       cat ${FILE}
   # Network config file for the Calico CNI plugin.

@@ -49,6 +49,9 @@ scrape_configs:
     labels:
       node_type: prom
 
+# The following is commented out because promethues does not cope well with
+#  collecting all of these diags when you have 1000 nodes and 30000 pods!
+
 #- job_name: 'kubernetes-cluster'
 #
 #  kubernetes_sd_configs:
