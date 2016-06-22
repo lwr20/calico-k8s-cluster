@@ -32,8 +32,8 @@ spec:
         role: management-ui 
     spec:
       containers:
-      - name: management-ui 
-        image: caseydavenport/collect:calico-containers-demo
+      - name: collect 
+        image: caseydavenport/collect
         imagePullPolicy: Always
         ports:
         - containerPort: 9001

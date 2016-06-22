@@ -15,15 +15,12 @@ spec:
   template:
     metadata:
       labels:
-        role: client 
+        tier: client 
     spec:
       containers:
       - name: client 
-        image: caseydavenport/probe:calico-containers-demo
+        image: caseydavenport/probe
         imagePullPolicy: Always
-        command:
-        - probe
-        - --urls=http://frontend.stars.cluster.local:80/status,http://backend.stars.cluster.local:6379/status
         ports:
         - containerPort: 9000 
 ---
@@ -37,4 +34,4 @@ spec:
   - port: 9000 
     targetPort: 9000
   selector:
-    role: client 
+    tier: client 

@@ -1,11 +1,12 @@
 kind: NetworkPolicy
-apiVersion: net.alpha.kubernetes.io/v1alpha1
+apiVersion: extensions/v1beta1 
 metadata:
   namespace: client 
   name: allow-ui 
 spec:
-  podSelector:
+  podSelector: {}
   ingress:
     - from:
-        - namespaces:
-            role: management-ui 
+        - namespaceSelector:
+            matchLabels:
+              role: management-ui 
