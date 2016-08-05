@@ -8,7 +8,7 @@ from subprocess import check_output
 MAX_SECONDS = 60
 
 # Total number of nodes, including the master.
-NUM_NODES = 2
+NUM_NODES = 3
 
 kubectl_path = "kubectl"
 

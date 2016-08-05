@@ -1,4 +1,4 @@
-K8S_VERSION=1.3.0
+K8S_VERSION=1.3.4
 
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
@@ -10,18 +10,24 @@ cluster:
 	make clean-webserver        # Stop any existing webserver.
 	make ssl-keys               # Make keys if necessary.
 	make calico-cni/dist/calico # Build the CNI binaries.
+	make fill-templates         # Fill in template cloud-configs.
 	make create-cluster-vagrant # Start the cluster.
 	make wait-for-cluster
 	make install-addons
 
-# Waits for 3 nodes to have started.
+# Waits for nodes to have started.
 wait-for-cluster:
 	python scripts/wait_for_cluster.py
 
+# Fill in templates.
+fill-templates:
+	sed 's/{K8S_VERSION}/'"v${K8S_VERSION}"'/g' < cloud-config/master-config-template.yaml > cloud-config/master.yaml
+	sed 's/{K8S_VERSION}/'"v${K8S_VERSION}"'/g' < cloud-config/node-config-template.yaml > cloud-config/node.yaml
+
 # Installs Kubernetes addons
 install-addons:
-	./kubectl create -f manifests/namespaces/
-	./kubectl create -f manifests/addons/
+	kubectl create -f manifests/namespaces/
+	kubectl create -f manifests/addons/
 
 # Builds calico-cni binaries from submodule.
 calico-cni/dist/calico: 
@@ -55,10 +61,10 @@ clean-kubectl:
 kubectl: clean-kubectl 
 	wget http://storage.googleapis.com/kubernetes-release/release/v$(K8S_VERSION)/bin/$(OS)/amd64/kubectl
 	chmod +x kubectl
-	./kubectl config set-cluster default-cluster --server=https://172.18.18.101 --certificate-authority=ssl/ca.pem
-	./kubectl config set-credentials default-admin --certificate-authority=ssl/ca.pem --client-key=ssl/admin-key.pem --client-certificate=ssl/admin.pem
-	./kubectl config set-context default-system --cluster=default-cluster --user=default-admin
-	./kubectl config use-context default-system
+	kubectl config set-cluster default-cluster --server=https://172.18.18.101 --certificate-authority=ssl/ca.pem
+	kubectl config set-credentials default-admin --certificate-authority=ssl/ca.pem --client-key=ssl/admin-key.pem --client-certificate=ssl/admin.pem
+	kubectl config set-context default-system --cluster=default-cluster --user=default-admin
+	kubectl config use-context default-system
 
 calicoctl:
 	wget http://www.projectcalico.org/builds/calicoctl
