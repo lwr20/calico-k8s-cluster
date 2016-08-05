@@ -188,6 +188,8 @@ coreos:
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
         ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin http://172.18.18.1:8000/calico-cni/dist/calico 
         ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico
+        ExecStartPre=/usr/bin/wget -N -P /opt/cni/bin http://172.18.18.1:8000/calico-cni/dist/calico-ipam
+        ExecStartPre=/usr/bin/chmod +x /opt/cni/bin/calico-ipam
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \
