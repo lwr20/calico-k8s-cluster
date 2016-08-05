@@ -1,18 +1,15 @@
-K8S_VERSION=1.2.0
+K8S_VERSION=1.3.0
 
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
 
-ssl-keys: ssl/admin.pem ssl/apiserver.pem 
+ssl-keys: ssl/admin.pem ssl/admin-key.pem ssl/apiserver.pem ssl/apiserver-key.pem ssl/ca.pem
 
 # Creates a Kubernetes cluster which passes the k8s conformance tests.
 cluster:
 	make clean-webserver        # Stop any existing webserver.
-	make clean-keys             # Remove any SSL keys.
-	make clean-kubectl	    # Remove old kubectl.
-	make clean-binaries         # Clean CNI binaries.
-	make kubectl                # Get kubectl
-	make binaries               # Build the CNI binaries.
+	make ssl-keys               # Make keys if necessary.
+	make calico-cni/dist/calico # Build the CNI binaries.
 	make create-cluster-vagrant # Start the cluster.
 	make wait-for-cluster
 	make install-addons
@@ -27,7 +24,10 @@ install-addons:
 	./kubectl create -f manifests/addons/
 
 # Builds calico-cni binaries from submodule.
-binaries: 
+calico-cni/dist/calico: 
+	make -C calico-cni binary
+
+calico-cni/dist/calico-ipam:
 	make -C calico-cni binary
 
 # Cleans the calico-cni submodule.
@@ -40,10 +40,10 @@ destroy-cluster-vagrant:
 create-cluster-vagrant: destroy-cluster-vagrant webserver
 	vagrant up
 
-webserver: ssl-keys
+webserver:
 	python -m SimpleHTTPServer &
 
-clean-webserver: clean-keys
+clean-webserver:
 	(sudo killall python) || echo "Server not running"
 
 generate-certs:
@@ -52,7 +52,7 @@ generate-certs:
 clean-kubectl:
 	rm -f kubectl
 
-kubectl: ssl/admin.pem
+kubectl: clean-kubectl 
 	wget http://storage.googleapis.com/kubernetes-release/release/v$(K8S_VERSION)/bin/$(OS)/amd64/kubectl
 	chmod +x kubectl
 	./kubectl config set-cluster default-cluster --server=https://172.18.18.101 --certificate-authority=ssl/ca.pem
