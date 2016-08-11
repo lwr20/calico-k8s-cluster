@@ -4,10 +4,12 @@ This directory contains the scripts to start a fully conformant Kubernetes clust
 These scripts can be run on OSX or Linux, and are currently used by Jenkins to deploy its test cluster.
 
 ### Getting Started
-To start the cluster:
+To start the cluster, make sure you have kubectl installed.
+
+Then:
 ```
-# OS can be either 'linux' or 'darwin'
-make OS=linux cluster
+make kubectl-config
+make cluster
 ```
 
 This will spin up 1 Kubernetes master and 3 minions.  Creating the cluster downloads a `kubectl` binary and configures TLS, so you can run the following locally once the cluster is running:

@@ -1,4 +1,5 @@
 K8S_VERSION=1.3.4
+NODE_IMAGE=calico/node:v0.21.0
 
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
@@ -23,6 +24,9 @@ wait-for-cluster:
 fill-templates:
 	sed 's/{K8S_VERSION}/'"v${K8S_VERSION}"'/g' < cloud-config/master-config-template.yaml > cloud-config/master.yaml
 	sed 's/{K8S_VERSION}/'"v${K8S_VERSION}"'/g' < cloud-config/node-config-template.yaml > cloud-config/node.yaml
+	sed -i.bak 's~{NODE_IMAGE}~'"${NODE_IMAGE}"'~g' cloud-config/node.yaml 
+	sed -i.bak 's~{NODE_IMAGE}~'"${NODE_IMAGE}"'~g' cloud-config/master.yaml
+	rm -f cloud-config/*.bak
 
 # Installs Kubernetes addons
 install-addons:
@@ -61,6 +65,8 @@ clean-kubectl:
 kubectl: clean-kubectl 
 	wget http://storage.googleapis.com/kubernetes-release/release/v$(K8S_VERSION)/bin/$(OS)/amd64/kubectl
 	chmod +x kubectl
+
+kubectl-config:
 	kubectl config set-cluster default-cluster --server=https://172.18.18.101 --certificate-authority=ssl/ca.pem
 	kubectl config set-credentials default-admin --certificate-authority=ssl/ca.pem --client-key=ssl/admin-key.pem --client-certificate=ssl/admin.pem
 	kubectl config set-context default-system --cluster=default-cluster --user=default-admin
