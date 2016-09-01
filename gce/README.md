@@ -29,7 +29,10 @@ These instructions have been tested on Ubuntu 14.04.  They are likely to work wi
     * Wait for all pods to be started.  This command will auto-update, showing only the pods that haven't finished starting yet: `watch kubectl get pods | grep -v Running`.  Note: Kubernetes throttles updates to the pod status so it can take some time for Kubernetes to report the correct state.
     * Pull basic stats and graphs: `make get-results`
     * The test includes a performance dashboard, which is accessible at http://localhost:3000.
-  * You can also pull full logs with `make -j24 pull-plugin-timings` for diagnostic purposes.
+  * You can also pull full logs with `make -j24 get-diags` for diagnostic purposes.
+  * And to pull down the prometheus database: `make get-prom-data`
+    * The prometheus data can then be looked at locally by spinning up local prometheus and grafana instances which load the data `make view-diags`
+      * And to stop the local instances, `make view-diags-stop`
   * To tear down the cluster, run `make gce-cleanup`.
 
 ## Changes to run on Vagrant
