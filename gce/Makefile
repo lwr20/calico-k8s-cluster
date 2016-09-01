@@ -12,8 +12,12 @@ ETCD_INSTANCE_TYPE:=n1-standard-16
 PROM_INSTANCE_TYPE:=n1-standard-4
 RR_INSTANCE_TYPE:=n1-standard-4
 PREFIX:=kube-scale
-NODE_IMAGE:=calico/node:v0.19.0
 GETTER_IMAGE:=caseydavenport/scale-tester:latest
+K8S_VER:=v1.2.0
+CALICO_POLICY_VER:=v0.1.3
+CALICO_CNI_VER:=v1.3.0
+CALICO_VER:=v0.19.0
+NODE_IMAGE:=calico/node:${CALICO_VER}
 
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".  Note: this URL is for an experimental, unreleased
@@ -22,10 +26,11 @@ GETTER_IMAGE:=caseydavenport/scale-tester:latest
 USE_UNPACKED_CNI_PLUGIN:=n
 UNPACKED_CNI_PLUGIN_URL:=https://storage.googleapis.com/calico-scale-testing-files/calico-cni-unpacked-a1c2749-libcalico-f0f9f33.tgz
 # URL of the standard (packed) version of the CNI plugin.
-PACKED_CNI_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/v1.3.0/calico
+PACKED_CNI_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico
 # URL of pre-configured Grafana DB.  Currently, this is empty apart from
 # having Prometheus pre-configured as the default data source.
 GRAFANA_DB_URL:=https://storage.googleapis.com/calico-scale-testing-files/grafana.db
+CALICOCTL_URL:=https://github.com/projectcalico/calico-containers/releases/download/${CALICO_VER}/calicoctl
 
 -include local-settings.mk
 
@@ -67,7 +72,7 @@ DIAGS_TARGETS := $(NODE_NUMBERS) $(ETCD_NODE_SUFFIXES) master prom rr1 rr2
 LOG_RETRIEVAL_TARGETS := $(addprefix job,${DIAGS_TARGETS})
 
 kubectl:
-	wget http://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/$(OS)/amd64/kubectl
+	wget http://storage.googleapis.com/kubernetes-release/release/$(K8S_VER)/bin/$(OS)/amd64/kubectl
 	chmod +x kubectl
 
 calicoctl-status:
@@ -317,6 +322,9 @@ build/prometheus.yml: templates/prometheus.yml Makefile local-settings.mk
 build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafana-json-url build/prom-conf-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
+	  sed "s~__K8S_VER__~$(K8S_VER)~g" | \
+	  sed "s~__CALICO_POLICY_VER__~$(CALICO_POLICY_VER)~g" | \
+	  sed "s~__CALICOCTL_URL__~$(CALICOCTL_URL)~g" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
 	  sed "s~__ETCD_CLIENT_URLS__~$(ETCD_CLIENT_URLS)~g" | \
 	  sed "s~__ETCD_ENDPOINTS__~$(ETCD_ENDPOINTS)~g"  | \
