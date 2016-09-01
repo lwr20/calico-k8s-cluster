@@ -4,13 +4,24 @@ This directory contains the scripts to start a fully conformant Kubernetes clust
 These scripts can be run on OSX or Linux, and are currently used by Jenkins to deploy its test cluster.
 
 ### Getting Started
-To start the cluster:
+Prerequisites:
+- `kubectl` must be installed in your $PATH.
+- You must have Python installed.
+- Run `git submodule init && git submodule update --recursive`
+
+First, checkout the version of the `calico-cni` submodule that you wish to build.
 ```
-# OS can be either 'linux' or 'darwin'
-make OS=linux cluster
+cd calico-cni && git fetch --tags
+git checkout v1.3.1
 ```
 
-This will spin up 1 Kubernetes master and 3 minions.  Creating the cluster downloads a `kubectl` binary and configures TLS, so you can run the following locally once the cluster is running:
+Then, to start the cluster:
+```
+make kubectl-config
+make cluster
+```
+
+Creating the cluster configures TLS, so you can run the following locally once the cluster is running:
 ```
 kubectl get pods --all-namespaces 
 ```  
@@ -35,7 +46,3 @@ vagrant ssh k8s-master
 # SSH into a node.
 vagrant ssh k8s-node-01
 ```
-
-### Jenkins
-
-Jenkins uses this cluster to run its e2e tests.  The jenkins entrypoint is located at `scripts/build-cluster-jenkins.sh`.
