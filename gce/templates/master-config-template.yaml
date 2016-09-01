@@ -67,7 +67,7 @@ write_files:
       versions:
         - name: v1alpha1
 
-  # Manifest which starts the Calico policy agent on the master.
+  # Manifest which starts the Calico policy controller on the master.
   - path: /etc/kubernetes/manifests/calico-policy.yaml
     owner: root
     permissions: 0755
@@ -75,18 +75,14 @@ write_files:
       apiVersion: v1
       kind: Pod
       metadata:
-        name: calico-policy-agent
+        name: calico-policy-controller
         namespace: calico-system
-        labels:
-          version: latest
-          projectcalico.org/app: "policy-agent"
       spec:
         hostNetwork: true
         containers:
-          # The Calico policy agent.
-          - name: k8s-policy-agent
-            image: calico/k8s-policy-agent:latest
-            imagePullPolicy: IfNotPresent
+          # The Calico policy controller.
+          - name: k8s-policy-controller
+            image: calico/k8s-policy-controller:latest
             env:
               # Modify ETCD_ENDPOINTS to match your etcd cluster.
               - name: ETCD_ENDPOINTS
@@ -97,7 +93,7 @@ write_files:
                 value: "true"
           # Leader election container used by the policy agent.
           - name: leader-elector
-            image: gcr.io/google_containers/leader-elector:0.4
+            image: quay.io/calico/leader-elector:v0.1.0
             imagePullPolicy: IfNotPresent
             args:
               - "--election=calico-policy-election"
@@ -201,7 +197,7 @@ coreos:
         ExecStart=/opt/bin/kube-apiserver \
         --allow-privileged=true \
         --etcd-servers=http://$private_ipv4:2379 \
-        --runtime-config=extensions/v1beta1=true,extensions/v1beta1/thirdpartyresources=true \
+        --runtime-config=extensions/v1beta1=true,extensions/v1beta1/networkpolicies=true \
         --insecure-bind-address=0.0.0.0 \
         --service-cluster-ip-range=10.100.0.0/24 \
         --logtostderr=true
@@ -282,6 +278,7 @@ coreos:
         ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni-archive/calico-cni.tgz
         ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
         ExecStartPre=/usr/bin/ln -fs /opt/calico/calico /opt/cni/bin/calico
+        ExecStartPre=/usr/bin/ln -fs /opt/calico/calico-ipam /opt/cni/bin/calico-ipam
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \

@@ -21,6 +21,7 @@ write_files:
           "type": "calico",
           "etcd_authority": "127.0.0.1:2379",
           "log_level": "debug",
+          "debug": true,
           "ipam": {
               "type": "calico-ipam"
           },
@@ -96,6 +97,7 @@ coreos:
         ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni.tgz
         ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
         ExecStartPre=/usr/bin/ln -sf /opt/calico/calico /opt/cni/bin/calico
+        ExecStartPre=/usr/bin/ln -sf /opt/calico/calico-ipam /opt/cni/bin/calico-ipam
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/scale-tester
         ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/scale-tester caseydavenport/scale-tester
         ExecStartPre=/usr/bin/docker pull gcr.io/google_containers/pause:0.8.0

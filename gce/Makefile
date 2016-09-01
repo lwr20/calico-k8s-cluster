@@ -27,6 +27,7 @@ USE_UNPACKED_CNI_PLUGIN:=n
 UNPACKED_CNI_PLUGIN_URL:=https://storage.googleapis.com/calico-scale-testing-files/calico-cni-unpacked-a1c2749-libcalico-f0f9f33.tgz
 # URL of the standard (packed) version of the CNI plugin.
 PACKED_CNI_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico
+IPAM_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico-ipam
 # URL of pre-configured Grafana DB.  Currently, this is empty apart from
 # having Prometheus pre-configured as the default data source.
 GRAFANA_DB_URL:=https://storage.googleapis.com/calico-scale-testing-files/grafana.db
@@ -170,6 +171,8 @@ build/calico/calico:
 	mkdir -p build/calico
 	wget $(PACKED_CNI_PLUGIN_URL) -O build/calico/calico
 	chmod +x build/calico/calico
+	wget $(IPAM_PLUGIN_URL) -O build/calico/calico-ipam
+	chmod +x build/calico/calico-ipam
 
 build/calico-cni-unpacked.tgz:
 	rm -f build/calico-cni-unpacked.tgz;
