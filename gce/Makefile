@@ -319,6 +319,25 @@ build/prometheus.yml: templates/prometheus.yml Makefile local-settings.mk
 	  sed "s~__PROM_ETCD_ENDPOINTS__~$(PROM_ETCD_ENDPOINTS)~g" | \
 	  sed "s~__PROM_ETCD_HOST_ENDPOINTS__~$(PROM_ETCD_HOST_ENDPOINTS)~g" > $@;
 
+# build/etcd-template.yaml needs its own templating to avoid a circular dependency.
+build/etcd-template.yaml: templates/etcd-template.yaml Makefile local-settings.mk
+	mkdir -p "$(@D)"
+	cat "$<" | \
+	  sed "s~__K8S_VER__~$(K8S_VER)~g" | \
+	  sed "s~__CALICO_POLICY_VER__~$(CALICO_POLICY_VER)~g" | \
+	  sed "s~__CALICOCTL_URL__~$(CALICOCTL_URL)~g" | \
+	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
+	  sed "s~__ETCD_CLIENT_URLS__~$(ETCD_CLIENT_URLS)~g" | \
+	  sed "s~__ETCD_ENDPOINTS__~$(ETCD_ENDPOINTS)~g"  | \
+	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
+	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
+	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
+	  sed "s~__GETTER_IMAGE__~$(GETTER_IMAGE)~g" | \
+	  sed "s~__CNI_PLUGIN_URL__~$$(cat build/calico-cni-url)~g" | \
+	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
+	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat build/grafana-json-url)~g" | \
+	  sed "s~__PROMETHEUS_CONFIG_URL__~$$(cat build/prom-conf-url)~g" > $@;
+
 build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafana-json-url build/prom-conf-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
