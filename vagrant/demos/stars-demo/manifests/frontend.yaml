@@ -2,29 +2,33 @@ apiVersion: v1
 kind: Service
 metadata:
   name: frontend 
+  namespace: stars
 spec:
-  type: NodePort
   ports:
   - port: 80 
     targetPort: 80 
-    nodePort: 30001
   selector:
-    tier: frontend 
+    role: frontend 
 ---
 apiVersion: v1
 kind: ReplicationController
 metadata:
   name: frontend 
+  namespace: stars
 spec:
-  replicas: 3
+  replicas: 1
   template:
     metadata:
       labels:
-        tier: frontend 
+        role: frontend 
     spec:
       containers:
       - name: frontend 
-        image: caseydavenport/frontend
+        image: calico/star-probe:v0.1.0
         imagePullPolicy: Always
+        command:
+        - probe
+        - --http-port=80
+        - --urls=http://frontend.stars:80/status,http://backend.stars:6379/status,http://client.client:9000/status
         ports:
         - containerPort: 80 
