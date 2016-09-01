@@ -54,19 +54,6 @@ write_files:
           }
       }
 
-  # NetworkPolicy ThirdPartyResource file.
-  - path: /home/core/networkpolicy.yaml
-    owner: root
-    permissions: 0755
-    content: |
-      kind: ThirdPartyResource
-      apiVersion: extensions/v1beta1
-      metadata:
-        name: network-policy.net.alpha.kubernetes.io
-      description: "Specification for a network isolation policy"
-      versions:
-        - name: v1alpha1
-
   # Manifest which starts the Calico policy controller on the master.
   - path: /etc/kubernetes/manifests/calico-policy.yaml
     owner: root
@@ -109,7 +96,7 @@ write_files:
     permissions: 0755
     content: |
       kind: NetworkPolicy
-      apiVersion: net.alpha.kubernetes.io/v1alpha1
+      apiVersion: extensions/v1beta1
       metadata:
         namespace: default
         name: nginx-service
@@ -330,11 +317,7 @@ coreos:
         TimeoutStartSec=0
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kubectl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubectl
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/k8s-policy/releases/download/__CALICO_POLICY_VER__/policy
-        ExecStartPre=/usr/bin/chmod +x /opt/bin/policy
-        ExecStartPre=-/opt/bin/kubectl create -f /home/core/networkpolicy.yaml
-        ExecStartPre=/usr/bin/sleep 5
-        ExecStart=-/opt/bin/policy create -f /home/core/nginx-policy.yaml
+        ExecStart=-/opt/bin/kubectl create -f /home/core/nginx-policy.yaml
 
         [Install]
         WantedBy=multi-user.target

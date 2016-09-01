@@ -109,7 +109,7 @@ scale-pinger:
 
 prepare-getter:
 	# Make sure policy is applied by attempting to create it again
-	-cd $(CURRENT_DIR)/policy-scale-test && ./policy create -f nginx-policy.yaml
+	-cd $(CURRENT_DIR)/policy-scale-test && kubectl create -f nginx-policy.yaml
 	# Create all the namespaces and RCs
 	cd $(CURRENT_DIR)/policy-scale-test && ./start.sh
 	$(MAKE) --no-print-directory scale-nginx
