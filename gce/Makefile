@@ -13,10 +13,10 @@ PROM_INSTANCE_TYPE:=n1-standard-4
 RR_INSTANCE_TYPE:=n1-standard-4
 PREFIX:=kube-scale
 GETTER_IMAGE:=caseydavenport/scale-tester:latest
-K8S_VER:=v1.2.0
-CALICO_POLICY_VER:=v0.1.3
-CALICO_CNI_VER:=v1.3.0
-CALICO_VER:=v0.19.0
+K8S_VER:=v1.3.6
+CALICO_POLICY_VER:=v0.3.0
+CALICO_CNI_VER:=v1.4.0-rc3
+CALICO_VER:=v0.21.0
 NODE_IMAGE:=calico/node:${CALICO_VER}
 CNI_VER:=v0.3.0
 
