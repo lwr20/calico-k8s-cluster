@@ -18,6 +18,7 @@ CALICO_POLICY_VER:=v0.1.3
 CALICO_CNI_VER:=v1.3.0
 CALICO_VER:=v0.19.0
 NODE_IMAGE:=calico/node:${CALICO_VER}
+CNI_VER:=v0.3.0
 
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".  Note: this URL is for an experimental, unreleased
@@ -28,6 +29,7 @@ UNPACKED_CNI_PLUGIN_URL:=https://storage.googleapis.com/calico-scale-testing-fil
 # URL of the standard (packed) version of the CNI plugin.
 PACKED_CNI_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico
 IPAM_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico-ipam
+CNI_PLUGIN_URL:=https://github.com/containernetworking/cni/releases/download/$(CNI_VER)/cni-$(CNI_VER).tgz
 # URL of pre-configured Grafana DB.  Currently, this is empty apart from
 # having Prometheus pre-configured as the default data source.
 GRAFANA_DB_URL:=https://storage.googleapis.com/calico-scale-testing-files/grafana.db
@@ -166,13 +168,14 @@ build/$(GCE_BUCKET).created:
 	-gsutil mb -p $(GCE_PROJECT) gs://$(GCE_BUCKET)
 	touch build/$(GCE_BUCKET).created
 
-# Download the packed CNI plugin binary.
+# Get all the CNI plugins.
 build/calico/calico:
 	mkdir -p build/calico
 	wget $(PACKED_CNI_PLUGIN_URL) -O build/calico/calico
-	chmod +x build/calico/calico
 	wget $(IPAM_PLUGIN_URL) -O build/calico/calico-ipam
-	chmod +x build/calico/calico-ipam
+	wget $(CNI_PLUGIN_URL) -O build/cni_plugin.tgz
+	tar -xvzf build/cni_plugin.tgz -C build/calico/
+	chmod +x build/calico/*
 
 build/calico-cni-unpacked.tgz:
 	rm -f build/calico-cni-unpacked.tgz;

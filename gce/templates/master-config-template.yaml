@@ -266,8 +266,9 @@ coreos:
         ExecStartPre=/usr/bin/wget -O /tmp/calico-cni-archive/calico-cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni-archive/calico-cni.tgz
         ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
-        ExecStartPre=/usr/bin/ln -fs /opt/calico/calico /opt/cni/bin/calico
-        ExecStartPre=/usr/bin/ln -fs /opt/calico/calico-ipam /opt/cni/bin/calico-ipam
+        ExecStartPre=/usr/bin/cp /opt/calico/calico /opt/cni/bin/calico
+        ExecStartPre=/usr/bin/cp /opt/calico/calico-ipam /opt/cni/bin/calico-ipam
+        ExecStartPre=/usr/bin/cp /opt/calico/loopback /opt/cni/bin/loopback
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \
