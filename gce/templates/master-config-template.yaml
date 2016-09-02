@@ -69,7 +69,7 @@ write_files:
         containers:
           # The Calico policy controller.
           - name: k8s-policy-controller
-            image: calico/k8s-policy-controller:latest
+            image: calico/kube-policy-controller:latest
             env:
               # Modify ETCD_ENDPOINTS to match your etcd cluster.
               - name: ETCD_ENDPOINTS
