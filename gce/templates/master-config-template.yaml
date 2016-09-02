@@ -102,11 +102,13 @@ write_files:
         name: nginx-service
       spec:
         podSelector:
-          k8s-app: nginx-server
+          matchLabels:
+            role: nginx-server
         ingress:
           - from:
-              - pods:
-                  role: getter
+              - podSelector:
+                  matchLabels:
+                    role: getter
             ports:
               - protocol: TCP
                 port: 80
