@@ -43,7 +43,7 @@ GCE_BUCKET:=$(PREFIX)-data
 NGINX_INSTANCES:=$(shell echo ${CLUSTER_SIZE}/10 + 1 | bc)
 
 # Generate node names.
-NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
+NODE_NUMBERS := $(shell seq -w 1 $(CLUSTER_SIZE))
 NODE_NAMES := $(addprefix $(PREFIX)-,$(NODE_NUMBERS))
 ETCD_NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(ETCD_CLUSTER_SIZE))
 ETCD_NODE_SUFFIXES := $(addprefix etcd-,$(ETCD_NODE_NUMBERS))
