@@ -399,7 +399,7 @@ gce-cleanup:
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
 	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) date; do echo "Trying to forward ports"; sleep 1; done'
-	ssh -o PasswordAuthentication=no \
+	ssh -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
 	    -L 8080:localhost:8080 \
 	    -L 2379:localhost:2379 \
 	    -L 4194:localhost:4194 \
