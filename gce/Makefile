@@ -133,9 +133,11 @@ get-results:
 get-diags: describe-nodes describe-pods describe-services describe-rc describe-ep get-prom-data $(LOG_RETRIEVAL_TARGETS) get-pod-logs
 
 get-prom-data:
+	@mkdir -p timings
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 get-pod-logs:
+	@mkdir -p timings
 	-kubectl get pods | grep getter | cut -f 1 -d " " | xargs -iPOD sh -c 'kubectl logs POD | gzip > timings/POD.log.gz &'
 
 $(LOG_RETRIEVAL_TARGETS): job%:
@@ -145,18 +147,23 @@ $(LOG_RETRIEVAL_TARGETS): job%:
 	-gcloud compute instances get-serial-port-output $(PREFIX)-$* > timings/serial-$*.log
 
 describe-nodes:
+	@mkdir -p timings
 	-kubectl describe nodes > timings/describe-nodes.log
 
 describe-pods:
+	@mkdir -p timings
 	-kubectl describe pods > timings/describe-pods.log
 
 describe-services:
+	@mkdir -p timings
 	-kubectl describe services > timings/describe-services.log
 
 describe-rc:
+	@mkdir -p timings
 	-kubectl describe rc > timings/describe-rc.log
 
 describe-ep:
+	@mkdir -p timings
 	-kubectl describe ep > timings/describe-ep.log
 
 .PHONY: $(LOG_RETRIEVAL_TARGETS)
@@ -391,7 +398,7 @@ gce-cleanup:
 
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
-	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) date; do echo "Trying to forward ports"; sleep 1; done'
+	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) date; do echo "Trying to forward ports"; sleep 1; done'
 	ssh -o PasswordAuthentication=no \
 	    -L 8080:localhost:8080 \
 	    -L 2379:localhost:2379 \
