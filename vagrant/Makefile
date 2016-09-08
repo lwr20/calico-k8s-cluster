@@ -1,5 +1,5 @@
 K8S_VERSION=1.3.4
-NODE_IMAGE=calico/node:v0.21.0
+NODE_IMAGE=calico/node:v0.22.0
 
 # Figure out what OS we're on (OSX or Linux) and lowercase it
 OS := $(shell uname -s | tr A-Z a-z)
