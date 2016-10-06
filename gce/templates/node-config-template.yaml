@@ -1,6 +1,16 @@
 #cloud-config
 ---
 write_files:
+  # Diags collection helper script:
+  - path: /home/core/getcdiags.sh
+    owner: root
+    permissions: 0755
+    content: |
+      #!/bin/bash
+      # Last line of calicoctl diags looks like this:
+      # "  curl --upload-file /tmp/tmpRACajJ/diags-260516_123004.tar.gz https://transfer.sh/diags-260516_123004.tar.gz"
+      FILE=`calicoctl diags | tail -1 | cut -f 5 -d " "`
+      cat ${FILE}
   # Network config file for the Calico CNI plugin.
   - path: /etc/cni/net.d/10-calico.conf
     owner: root
@@ -31,9 +41,6 @@ coreos:
     proxy: on
     listen-client-urls: http://127.0.0.1:2379
     initial-cluster: __ETCD_PEER_URLS__
-  fleet:
-    metadata: "role=node"
-    etcd_servers: "http://127.0.0.1:2379"
   update:
     reboot-strategy: off
   units:
@@ -45,8 +52,6 @@ coreos:
             Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'
             ExecStartPre=/usr/bin/rm -rf /var/lib/docker
     - name: etcd2.service
-      command: start
-    - name: fleet.service
       command: start
     - name: calico-node.service
       runtime: true
@@ -85,7 +90,7 @@ coreos:
         Requires=docker.service
 
         [Service]
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubelet
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
         ExecStartPre=/usr/bin/wget -N -P /tmp http://__CLUSTER_PREFIX__-master/calico-cni.tgz
         ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni.tgz
@@ -119,7 +124,7 @@ coreos:
         Description=Kubernetes Proxy
         Documentation=https://github.com/GoogleCloudPlatform/kubernetes
         [Service]
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin  https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kube-proxy
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin  https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kube-proxy
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-proxy
         ExecStart=/opt/bin/kube-proxy \
         --master=http://__CLUSTER_PREFIX__-master:8080 \

@@ -18,10 +18,6 @@ write_files:
       logs=/var/log/grafana
       home=/usr/share/grafana
 coreos:
-
-  fleet:
-    metadata: "role=node"
-    etcd_servers: "http://127.0.0.1:2379"
   update:
     reboot-strategy: off
   units:
@@ -31,8 +27,6 @@ coreos:
           content: |
             [Service]
             Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'
-    - name: fleet.service
-      command: start
     - name: prom.service
       command: start
       content: |

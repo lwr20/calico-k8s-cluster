@@ -1,0 +1,84 @@
+#cloud-config
+---
+write_files:
+    - path: /home/core/install-rr
+      permissions: 0755
+      owner: root
+      content: |
+        #!/bin/bash
+        set -e
+        set -x
+        cd /home/core/
+
+        # Download calicoctl and make it executable:
+        while ! wget https://github.com/projectcalico/calico-containers/releases/download/v0.19.0/calicoctl -O calicoctl; do
+          echo Failed to download calicoctl
+        done
+        chmod +x ./calicoctl
+
+        while ! docker pull __CLUSTER_PREFIX__-master:5000/routereflector;
+        do
+          echo "Failed to pull route reflector image"
+        done
+
+        while ! ./calicoctl bgp node-mesh off;
+        do
+          echo Failed to turn off BGP mesh.
+        done
+
+        calico_as=$(./calicoctl bgp default-node-as)
+        while ! ./calicoctl bgp peer add $private_ipv4 as $calico_as ;
+        do
+          echo Failed to add global RR BGP peer.
+        done
+
+        while ! docker run --privileged \
+                   --net=host -d \
+                   --name=rr \
+                   -e ETCD_AUTHORITY=127.0.0.1:2379 \
+                   -e IP=$private_ipv4 \
+                   __CLUSTER_PREFIX__-master:5000/routereflector;
+        do
+          echo "Failed to start route reflector"
+        done
+        echo "Started RR"
+
+        # Disable bird logging, which is too verbose by default.
+        # See https://github.com/projectcalico/calico-bird/issues/19
+        docker exec -t rr bash -c 'sed -i "s/debug all/debug off/" /templates/*'
+        while ! docker exec -t rr birdc -s /etc/service/bird/bird.ctl debug all off ;
+        do
+          echo "Waiting for BIRD to come up..."
+          sleep 1
+        done
+
+        # Add this node to the RR mesh.
+        etcdctl set calico/bgp/v1/rr_v4/$private_ipv4 \
+          '{"ip": "$private_ipv4", "cluster_id": "1.0.0.0"}'
+
+coreos:
+    update:
+      reboot-strategy: off
+    etcd2:
+      proxy: on
+      listen-client-urls: http://127.0.0.1:2379
+      initial-cluster: __ETCD_PEER_URLS__
+    units:
+      - name: etcd2.service
+        command: start
+      - name: calico.service
+        command: start
+        content: |
+          [Unit]
+          Description=Calico
+          After=docker.service
+
+          [Service]
+          ExecStart=/home/core/install-rr
+          Restart=on-failure
+      - name: "docker.service"
+        drop-ins:
+          - name: "50-insecure-registry.conf"
+            content: |
+              [Service]
+              Environment=DOCKER_OPTS='--insecure-registry="__CLUSTER_PREFIX__-master:5000"'

@@ -4,7 +4,7 @@
 kubectl create -f ../build/manifests/namespaces/
 
 # Create DNS.
-kubectl create -f ../build/manifests/addons/dns-addon.yaml 
+kubectl create -f ../build/manifests/addons/dns-addon.yaml
 
 # Ensure isolation is on.
 echo "Enabling isolation on default namespace"
@@ -15,4 +15,4 @@ echo "Starting nginx Service"
 kubectl create -f nginx-server.yaml
 
 echo "Start getter ReplicationController"
-kubectl create -f getter.yaml
+kubectl create -f ../build/getter.yaml
