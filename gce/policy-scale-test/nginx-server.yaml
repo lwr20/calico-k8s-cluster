@@ -5,7 +5,7 @@ metadata:
 spec:
   clusterIP: 10.100.0.50
   selector:
-    k8s-app: nginx-server
+    role: nginx-server
   ports:
   - port: 80 
     targetPort: 80 
@@ -16,12 +16,10 @@ metadata:
   name: nginx-server 
 spec:
   replicas: 1
-  selector:
-    k8s-app: nginx-server 
   template:
     metadata:
       labels:
-        k8s-app: nginx-server 
+        role: nginx-server
     spec:
       containers:
       - name: nginx 

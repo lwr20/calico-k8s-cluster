@@ -13,11 +13,12 @@ PROM_INSTANCE_TYPE:=n1-standard-4
 RR_INSTANCE_TYPE:=n1-standard-4
 PREFIX:=kube-scale
 GETTER_IMAGE:=caseydavenport/scale-tester:latest
-K8S_VER:=v1.2.0
-CALICO_POLICY_VER:=v0.1.3
-CALICO_CNI_VER:=v1.3.0
-CALICO_VER:=v0.19.0
+K8S_VER:=v1.3.6
+CALICO_POLICY_VER:=v0.3.0
+CALICO_CNI_VER:=v1.4.0-rc3
+CALICO_VER:=v0.21.0
 NODE_IMAGE:=calico/node:${CALICO_VER}
+CNI_VER:=v0.3.0
 
 # Whether to use the unpacked CNI plugin (rather than the one-file, packed
 # version).  "y" or "n".  Note: this URL is for an experimental, unreleased
@@ -27,6 +28,8 @@ USE_UNPACKED_CNI_PLUGIN:=n
 UNPACKED_CNI_PLUGIN_URL:=https://storage.googleapis.com/calico-scale-testing-files/calico-cni-unpacked-a1c2749-libcalico-f0f9f33.tgz
 # URL of the standard (packed) version of the CNI plugin.
 PACKED_CNI_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico
+IPAM_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico-ipam
+CNI_PLUGIN_URL:=https://github.com/containernetworking/cni/releases/download/$(CNI_VER)/cni-$(CNI_VER).tgz
 # URL of pre-configured Grafana DB.  Currently, this is empty apart from
 # having Prometheus pre-configured as the default data source.
 GRAFANA_DB_URL:=https://storage.googleapis.com/calico-scale-testing-files/grafana.db
@@ -40,7 +43,7 @@ GCE_BUCKET:=$(PREFIX)-data
 NGINX_INSTANCES:=$(shell echo ${CLUSTER_SIZE}/10 + 1 | bc)
 
 # Generate node names.
-NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(CLUSTER_SIZE))
+NODE_NUMBERS := $(shell seq -w 1 $(CLUSTER_SIZE))
 NODE_NAMES := $(addprefix $(PREFIX)-,$(NODE_NUMBERS))
 ETCD_NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(ETCD_CLUSTER_SIZE))
 ETCD_NODE_SUFFIXES := $(addprefix etcd-,$(ETCD_NODE_NUMBERS))
@@ -108,7 +111,7 @@ scale-pinger:
 
 prepare-getter:
 	# Make sure policy is applied by attempting to create it again
-	-cd $(CURRENT_DIR)/policy-scale-test && ./policy create -f nginx-policy.yaml
+	-cd $(CURRENT_DIR)/policy-scale-test && kubectl create -f nginx-policy.yaml
 	# Create all the namespaces and RCs
 	cd $(CURRENT_DIR)/policy-scale-test && ./start.sh
 	$(MAKE) --no-print-directory scale-nginx
@@ -130,9 +133,11 @@ get-results:
 get-diags: describe-nodes describe-pods describe-services describe-rc describe-ep get-prom-data $(LOG_RETRIEVAL_TARGETS) get-pod-logs
 
 get-prom-data:
+	@mkdir -p timings
 	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 get-pod-logs:
+	@mkdir -p timings
 	-kubectl get pods | grep getter | cut -f 1 -d " " | xargs -iPOD sh -c 'kubectl logs POD | gzip > timings/POD.log.gz &'
 
 $(LOG_RETRIEVAL_TARGETS): job%:
@@ -142,18 +147,23 @@ $(LOG_RETRIEVAL_TARGETS): job%:
 	-gcloud compute instances get-serial-port-output $(PREFIX)-$* > timings/serial-$*.log
 
 describe-nodes:
+	@mkdir -p timings
 	-kubectl describe nodes > timings/describe-nodes.log
 
 describe-pods:
+	@mkdir -p timings
 	-kubectl describe pods > timings/describe-pods.log
 
 describe-services:
+	@mkdir -p timings
 	-kubectl describe services > timings/describe-services.log
 
 describe-rc:
+	@mkdir -p timings
 	-kubectl describe rc > timings/describe-rc.log
 
 describe-ep:
+	@mkdir -p timings
 	-kubectl describe ep > timings/describe-ep.log
 
 .PHONY: $(LOG_RETRIEVAL_TARGETS)
@@ -165,11 +175,14 @@ build/$(GCE_BUCKET).created:
 	-gsutil mb -p $(GCE_PROJECT) gs://$(GCE_BUCKET)
 	touch build/$(GCE_BUCKET).created
 
-# Download the packed CNI plugin binary.
+# Get all the CNI plugins.
 build/calico/calico:
 	mkdir -p build/calico
 	wget $(PACKED_CNI_PLUGIN_URL) -O build/calico/calico
-	chmod +x build/calico/calico
+	wget $(IPAM_PLUGIN_URL) -O build/calico/calico-ipam
+	wget $(CNI_PLUGIN_URL) -O build/cni_plugin.tgz
+	tar -xvzf build/cni_plugin.tgz -C build/calico/
+	chmod +x build/calico/*
 
 build/calico-cni-unpacked.tgz:
 	rm -f build/calico-cni-unpacked.tgz;
@@ -385,8 +398,8 @@ gce-cleanup:
 
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
-	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) date; do echo "Trying to forward ports"; sleep 1; done'
-	ssh -o PasswordAuthentication=no \
+	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) date; do echo "Trying to forward ports"; sleep 1; done'
+	ssh -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
 	    -L 8080:localhost:8080 \
 	    -L 2379:localhost:2379 \
 	    -L 4194:localhost:4194 \
