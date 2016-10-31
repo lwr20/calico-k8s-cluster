@@ -5,7 +5,7 @@ ETCD_CLUSTER_SIZE:=3
 NUM_PODS:=300
 GCE_REGION:=us-central1-f
 GCE_PROJECT:=unique-caldron-775
-GCE_IMAGE_NAME:=coreos-alpha-1010-1-0-v20160407
+GCE_IMAGE_NAME:=coreos-stable-1122-3-0-v20161021
 MASTER_INSTANCE_TYPE:=n1-standard-16
 NODE_INSTANCE_TYPE:=n1-highcpu-4
 ETCD_INSTANCE_TYPE:=n1-standard-16
@@ -43,7 +43,7 @@ GCE_BUCKET:=$(PREFIX)-data
 NGINX_INSTANCES:=$(shell echo ${CLUSTER_SIZE}/10 + 1 | bc)
 
 # Generate node names.
-NODE_NUMBERS := $(shell seq -w 1 $(CLUSTER_SIZE))
+NODE_NUMBERS := $(shell seq -f '%03.0f' 1 $(CLUSTER_SIZE))
 NODE_NAMES := $(addprefix $(PREFIX)-,$(NODE_NUMBERS))
 ETCD_NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(ETCD_CLUSTER_SIZE))
 ETCD_NODE_SUFFIXES := $(addprefix etcd-,$(ETCD_NODE_NUMBERS))
@@ -58,9 +58,9 @@ TEMPLATED_OUTPUT := $(patsubst templates/%, build/%, $(INPUT_TEMPLATES))
 ETCD_PEER_URLS := $(shell python -c 'print ",".join(["etcd-%02d=http://$(PREFIX)-etcd-%02d:2380" % (i, i) for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 ETCD_CLIENT_URLS := $(shell python -c 'print ",".join(["etcd-%02d=http://$(PREFIX)-etcd-%02d:2379" % (i, i) for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 ETCD_ENDPOINTS := $(shell python -c 'print ",".join(["http://$(PREFIX)-etcd-%02d.c.$(GCE_PROJECT).internal:2379" % i for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
-PROM_FELIX_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9091" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
-PROM_DRIVER_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9092" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
-PROM_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9100" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
+PROM_FELIX_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%03d:9091" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
+PROM_DRIVER_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%03d:9092" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
+PROM_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%03d:9100" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
 PROM_ETCD_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-etcd-%02d:2379" % n for n in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 PROM_ETCD_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-etcd-%02d:9100" % n for n in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 
