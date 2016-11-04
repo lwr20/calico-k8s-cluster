@@ -35,60 +35,6 @@ write_files:
     content: |
       127.0.0.1    localhost
 
-  # Network config file for the Calico CNI plugin.
-  - path: /etc/cni/net.d/10-calico.conf
-    owner: root
-    permissions: 0755
-    content: |
-      {
-          "name": "calico-k8s-network",
-          "type": "calico",
-          "etcd_endpoints": "__ETCD_ENDPOINTS__",
-          "log_level": "info",
-          "ipam": {
-              "type": "calico-ipam"
-          },
-          "policy": {
-              "type": "k8s",
-              "k8s_api_root": "http://127.0.0.1:8080/api/v1/"
-          }
-      }
-
-  # Manifest which starts the Calico policy controller on the master.
-  - path: /etc/kubernetes/manifests/calico-policy.yaml
-    owner: root
-    permissions: 0755
-    content: |
-      apiVersion: v1
-      kind: Pod
-      metadata:
-        name: calico-policy-controller
-        namespace: calico-system
-      spec:
-        hostNetwork: true
-        containers:
-          # The Calico policy controller.
-          - name: k8s-policy-controller
-            image: calico/kube-policy-controller:latest
-            env:
-              # Modify ETCD_ENDPOINTS to match your etcd cluster.
-              - name: ETCD_ENDPOINTS
-                value: "__ETCD_ENDPOINTS__"
-              - name: K8S_API
-                value: "http://127.0.0.1:8080"
-              - name: LEADER_ELECTION
-                value: "true"
-          # Leader election container used by the policy agent.
-          - name: leader-elector
-            image: quay.io/calico/leader-elector:v0.1.0
-            imagePullPolicy: IfNotPresent
-            args:
-              - "--election=calico-policy-election"
-              - "--http=127.0.0.1:4040"
-            ports:
-              - containerPort: 4040
-                protocol: TCP
-
   # NetworkPolicy object used by the test to allow traffic from
   # the "getter" pods to the nginx service.
   - path: /home/core/nginx-policy.yaml
@@ -223,29 +169,6 @@ coreos:
         ExecStart=/opt/bin/kube-scheduler --master=$private_ipv4:8080
         Restart=always
         RestartSec=10
-    - name: calico-node.service
-      runtime: true
-      command: start
-      content: |
-        [Unit]
-        Description=calicoctl node
-        After=docker.service
-        Requires=docker.service
-
-        [Service]
-        User=root
-        Environment=ETCD_ENDPOINTS=__ETCD_ENDPOINTS__
-        PermissionsStartOnly=true
-        ExecStartPre=-/usr/bin/rm -f /opt/bin/calicoctl
-        ExecStartPre=/usr/bin/wget -P /opt/bin __CALICOCTL_URL__
-        ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
-        ExecStartPre=/opt/bin/calicoctl pool add 192.168.0.0/16 --ipip --nat-outgoing
-        ExecStart=/opt/bin/calicoctl node --detach=false --node-image=__NODE_IMAGE__
-        Restart=always
-        RestartSec=10
-
-        [Install]
-        WantedBy=multi-user.target
 
     - name: kubelet.service
       runtime: true
@@ -256,7 +179,6 @@ coreos:
         Documentation=https://github.com/kubernetes/kubernetes
         After=docker.service
         After=etcd2.service
-        After=calico-node.service
         Requires=docker.service
 
         [Service]
@@ -266,8 +188,6 @@ coreos:
         ExecStartPre=/usr/bin/wget -O /tmp/calico-cni-archive/calico-cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni-archive/calico-cni.tgz
         ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
-        ExecStartPre=/usr/bin/cp /opt/calico/calico /opt/cni/bin/calico
-        ExecStartPre=/usr/bin/cp /opt/calico/calico-ipam /opt/cni/bin/calico-ipam
         ExecStartPre=/usr/bin/cp /opt/calico/loopback /opt/cni/bin/loopback
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
@@ -349,7 +269,7 @@ coreos:
         [Install]
         WantedBy=multi-user.target
 
-    # Local Docker registry - nodes pull the calico/node image from here.
+    # Local Docker registry - nodes pull various images from here.
     - name: registry.service
       command: start
       content: |
@@ -365,6 +285,8 @@ coreos:
         ExecStartPre=-/usr/bin/docker pull registry:2
         ExecStartPre=-/usr/bin/docker pull __NODE_IMAGE__
         ExecStartPre=-/usr/bin/docker tag __NODE_IMAGE__ __CLUSTER_PREFIX__-master:5000/calico-node
+        ExecStartPre=-/usr/bin/docker pull __CALICO_CNI_IMAGE__
+        ExecStartPre=-/usr/bin/docker tag __CALICO_CNI_IMAGE__ __CLUSTER_PREFIX__-master:5000/calico-cni
         ExecStartPre=-/usr/bin/docker pull prom/node-exporter:latest
         ExecStartPre=-/usr/bin/docker tag prom/node-exporter:latest __CLUSTER_PREFIX__-master:5000/node-exporter
         ExecStartPre=-/usr/bin/docker pull __GETTER_IMAGE__
@@ -374,6 +296,7 @@ coreos:
         ExecStart=/usr/bin/docker run -p 5000:5000 --name registry registry:2
         ExecStartPost=/bin/sleep 5
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/calico-node
+        ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/calico-cni
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/node-exporter
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/scale-tester
         ExecStartPost=/usr/bin/docker push __CLUSTER_PREFIX__-master:5000/routereflector
