@@ -79,7 +79,7 @@ kubectl:
 	chmod +x kubectl
 
 calicoctl-status:
-	-ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 sudo ETCD_AUTHORITY=kube-scale-etcd-01:2379 calicoctl status
+	-ssh -o StrictHostKeyChecking=no -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 sudo ETCD_AUTHORITY=kube-scale-etcd-01:2379 calicoctl status
 
 calicoctl:
 	wget http://www.projectcalico.org/builds/calicoctl
@@ -134,7 +134,7 @@ get-diags: describe-nodes describe-pods describe-services describe-rc describe-e
 
 get-prom-data:
 	@mkdir -p timings
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
+	-ssh -A -o StrictHostKeyChecking=no -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 get-pod-logs:
 	@mkdir -p timings
@@ -142,8 +142,8 @@ get-pod-logs:
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log &
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo /home/core/getcdiags.sh > timings/diags-$*.tgz &
+	-ssh -A -o StrictHostKeyChecking=no -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log &
+	-ssh -A -o StrictHostKeyChecking=no -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo /home/core/getcdiags.sh > timings/diags-$*.tgz &
 	-gcloud compute instances get-serial-port-output $(PREFIX)-$* > timings/serial-$*.log
 
 describe-nodes:
