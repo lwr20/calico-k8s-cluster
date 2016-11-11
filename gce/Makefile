@@ -5,7 +5,7 @@ ETCD_CLUSTER_SIZE:=3
 NUM_PODS:=300
 GCE_REGION:=us-central1-f
 GCE_PROJECT:=unique-caldron-775
-GCE_IMAGE_NAME:=coreos-alpha-1010-1-0-v20160407
+GCE_IMAGE_NAME:=coreos-stable-1122-3-0-v20161021
 MASTER_INSTANCE_TYPE:=n1-standard-16
 NODE_INSTANCE_TYPE:=n1-highcpu-4
 ETCD_INSTANCE_TYPE:=n1-standard-16
@@ -43,7 +43,7 @@ GCE_BUCKET:=$(PREFIX)-data
 NGINX_INSTANCES:=$(shell echo ${CLUSTER_SIZE}/10 + 1 | bc)
 
 # Generate node names.
-NODE_NUMBERS := $(shell seq -w 1 $(CLUSTER_SIZE))
+NODE_NUMBERS := $(shell seq -f '%03.0f' 1 $(CLUSTER_SIZE))
 NODE_NAMES := $(addprefix $(PREFIX)-,$(NODE_NUMBERS))
 ETCD_NODE_NUMBERS := $(shell seq -f '%02.0f' 1 $(ETCD_CLUSTER_SIZE))
 ETCD_NODE_SUFFIXES := $(addprefix etcd-,$(ETCD_NODE_NUMBERS))
@@ -58,9 +58,9 @@ TEMPLATED_OUTPUT := $(patsubst templates/%, build/%, $(INPUT_TEMPLATES))
 ETCD_PEER_URLS := $(shell python -c 'print ",".join(["etcd-%02d=http://$(PREFIX)-etcd-%02d:2380" % (i, i) for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 ETCD_CLIENT_URLS := $(shell python -c 'print ",".join(["etcd-%02d=http://$(PREFIX)-etcd-%02d:2379" % (i, i) for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 ETCD_ENDPOINTS := $(shell python -c 'print ",".join(["http://$(PREFIX)-etcd-%02d.c.$(GCE_PROJECT).internal:2379" % i for i in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
-PROM_FELIX_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9091" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
-PROM_DRIVER_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9092" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
-PROM_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%02d:9100" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
+PROM_FELIX_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%03d:9091" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
+PROM_DRIVER_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%03d:9092" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
+PROM_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-%03d:9100" % n for n in range(1, $(CLUSTER_SIZE)+1)])')
 PROM_ETCD_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-etcd-%02d:2379" % n for n in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 PROM_ETCD_HOST_ENDPOINTS := $(shell python -c 'print str(["$(PREFIX)-etcd-%02d:9100" % n for n in range(1, $(ETCD_CLUSTER_SIZE)+1)])')
 
@@ -79,7 +79,7 @@ kubectl:
 	chmod +x kubectl
 
 calicoctl-status:
-	-ssh -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 sudo ETCD_AUTHORITY=kube-scale-etcd-01:2379 calicoctl status
+	-ssh -o StrictHostKeyChecking=no -o LogLevel=quiet core@${PREFIX}-master.${GCE_REGION}.unique-caldron-775 sudo ETCD_AUTHORITY=kube-scale-etcd-01:2379 calicoctl status
 
 calicoctl:
 	wget http://www.projectcalico.org/builds/calicoctl
@@ -134,7 +134,7 @@ get-diags: describe-nodes describe-pods describe-services describe-rc describe-e
 
 get-prom-data:
 	@mkdir -p timings
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
+	-ssh -A -o StrictHostKeyChecking=no -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 get-pod-logs:
 	@mkdir -p timings
@@ -142,8 +142,8 @@ get-pod-logs:
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log &
-	-ssh -A -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo /home/core/getcdiags.sh > timings/diags-$*.tgz &
+	-ssh -A -o StrictHostKeyChecking=no -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* journalctl --no-pager > timings/journal-$*.log &
+	-ssh -A -o StrictHostKeyChecking=no -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-$* sudo /home/core/getcdiags.sh > timings/diags-$*.tgz &
 	-gcloud compute instances get-serial-port-output $(PREFIX)-$* > timings/serial-$*.log
 
 describe-nodes:
