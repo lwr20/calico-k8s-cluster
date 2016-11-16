@@ -13,27 +13,22 @@ PROM_INSTANCE_TYPE:=n1-standard-4
 RR_INSTANCE_TYPE:=n1-standard-4
 PREFIX:=kube-scale
 GETTER_IMAGE:=caseydavenport/scale-tester:latest
-K8S_VER:=v1.3.6
-CALICO_POLICY_VER:=v0.3.0
-CALICO_CNI_VER:=v1.4.0-rc3
-CALICO_VER:=v0.21.0
-NODE_IMAGE:=calico/node:${CALICO_VER}
+K8S_VER:=v1.4.5
+CALICO_POLICY_VER:=v0.5.0
+CALICO_POLICY_IMAGE:=calico/kube-policy-controller:${CALICO_POLICY_VER}
+CALICO_CNI_VER:=v1.5.1
+CALICO_CNI_IMAGE:=calico/cni:${CALICO_CNI_VER}
+CALICO_CONT_VER:=v0.23.0
+NODE_IMAGE:=calico/node:${CALICO_CONT_VER}
 CNI_VER:=v0.3.0
+POD_CIDR:=192.168.0.0/16
 
-# Whether to use the unpacked CNI plugin (rather than the one-file, packed
-# version).  "y" or "n".  Note: this URL is for an experimental, unreleased
-# version of the plugin.  The purpose of this flag is to test whether using
-# an unpacked version of the plugin improves scale.
-USE_UNPACKED_CNI_PLUGIN:=n
-UNPACKED_CNI_PLUGIN_URL:=https://storage.googleapis.com/calico-scale-testing-files/calico-cni-unpacked-a1c2749-libcalico-f0f9f33.tgz
-# URL of the standard (packed) version of the CNI plugin.
-PACKED_CNI_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico
 IPAM_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico-ipam
 CNI_PLUGIN_URL:=https://github.com/containernetworking/cni/releases/download/$(CNI_VER)/cni-$(CNI_VER).tgz
 # URL of pre-configured Grafana DB.  Currently, this is empty apart from
 # having Prometheus pre-configured as the default data source.
 GRAFANA_DB_URL:=https://storage.googleapis.com/calico-scale-testing-files/grafana.db
-CALICOCTL_URL:=https://github.com/projectcalico/calico-containers/releases/download/${CALICO_VER}/calicoctl
+CALICOCTL_URL:=https://github.com/projectcalico/calico-containers/releases/download/${CALICO_CONT_VER}/calicoctl
 
 -include local-settings.mk
 
@@ -179,7 +174,6 @@ build/$(GCE_BUCKET).created:
 # Get all the CNI plugins.
 build/calico/calico:
 	mkdir -p build/calico
-	wget $(PACKED_CNI_PLUGIN_URL) -O build/calico/calico
 	wget $(IPAM_PLUGIN_URL) -O build/calico/calico-ipam
 	wget $(CNI_PLUGIN_URL) -O build/cni_plugin.tgz
 	tar -xvzf build/cni_plugin.tgz -C build/calico/
@@ -187,7 +181,6 @@ build/calico/calico:
 
 build/calico-cni-unpacked.tgz:
 	rm -f build/calico-cni-unpacked.tgz;
-	wget $(UNPACKED_CNI_PLUGIN_URL) -O build/calico-cni-unpacked.tgz
 
 # Takes the bare calico executable and packages it in a tgz so that its
 # structure matches the unpacked plugin.
@@ -198,14 +191,6 @@ build/calico-cni-packed-url: build/calico-cni-packed.tgz build/$(GCE_BUCKET).cre
 	gsutil cp build/calico-cni-packed.tgz gs://$(GCE_BUCKET)/calico-cni-packed.tgz
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/calico-cni-packed.tgz
 	echo "https://storage.googleapis.com/$(GCE_BUCKET)/calico-cni-packed.tgz" > build/calico-cni-packed-url
-
-ifeq ($(USE_UNPACKED_CNI_PLUGIN), y)
-build/calico-cni-url: Makefile local-settings.mk
-	echo "$(UNPACKED_CNI_PLUGIN_URL)" > build/calico-cni-url
-else
-build/calico-cni-url: build/calico-cni-packed-url Makefile local-settings.mk
-	cp build/calico-cni-packed-url build/calico-cni-url
-endif
 
 run-local-prom:
 	# Prometheus needs a config file, but a blank one will do
@@ -339,6 +324,9 @@ build/etcd-template.yaml: templates/etcd-template.yaml Makefile local-settings.m
 	cat "$<" | \
 	  sed "s~__K8S_VER__~$(K8S_VER)~g" | \
 	  sed "s~__CALICO_POLICY_VER__~$(CALICO_POLICY_VER)~g" | \
+	  sed "s~__CALICO_POLICY_IMAGE__~$(CALICO_POLICY_IMAGE)~g" | \
+	  sed "s~__CALICO_CNI_IMAGE__~$(CALICO_CNI_IMAGE)~g" | \
+	  sed "s~__POD_CIDR__~$(POD_CIDR)~g" | \
 	  sed "s~__CALICOCTL_URL__~$(CALICOCTL_URL)~g" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
 	  sed "s~__ETCD_CLIENT_URLS__~$(ETCD_CLIENT_URLS)~g" | \
@@ -347,16 +335,19 @@ build/etcd-template.yaml: templates/etcd-template.yaml Makefile local-settings.m
 	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
 	  sed "s~__GETTER_IMAGE__~$(GETTER_IMAGE)~g" | \
-	  sed "s~__CNI_PLUGIN_URL__~$$(cat build/calico-cni-url)~g" | \
+	  sed "s~__CNI_PLUGIN_URL__~$(CNI_PLUGIN_URL)~g" | \
 	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
 	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat build/grafana-json-url)~g" | \
 	  sed "s~__PROMETHEUS_CONFIG_URL__~$$(cat build/prom-conf-url)~g" > $@;
 
-build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafana-json-url build/prom-conf-url
+build/%: templates/% Makefile local-settings.mk build/grafana-json-url build/prom-conf-url
 	mkdir -p "$(@D)"
 	cat "$<" | \
 	  sed "s~__K8S_VER__~$(K8S_VER)~g" | \
 	  sed "s~__CALICO_POLICY_VER__~$(CALICO_POLICY_VER)~g" | \
+	  sed "s~__CALICO_POLICY_IMAGE__~$(CALICO_POLICY_IMAGE)~g" | \
+	  sed "s~__CALICO_CNI_IMAGE__~$(CALICO_CNI_IMAGE)~g" | \
+	  sed "s~__POD_CIDR__~$(POD_CIDR)~g" | \
 	  sed "s~__CALICOCTL_URL__~$(CALICOCTL_URL)~g" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
 	  sed "s~__ETCD_CLIENT_URLS__~$(ETCD_CLIENT_URLS)~g" | \
@@ -365,7 +356,7 @@ build/%: templates/% Makefile local-settings.mk build/calico-cni-url build/grafa
 	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
 	  sed "s~__GETTER_IMAGE__~$(GETTER_IMAGE)~g" | \
-	  sed "s~__CNI_PLUGIN_URL__~$$(cat build/calico-cni-url)~g" | \
+	  sed "s~__CNI_PLUGIN_URL__~$(CNI_PLUGIN_URL)~g" | \
 	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
 	  sed "s~__GRAFANA_DASH_JSON_URL__~$$(cat build/grafana-json-url)~g" | \
 	  sed "s~__PROMETHEUS_CONFIG_URL__~$$(cat build/prom-conf-url)~g" > $@;

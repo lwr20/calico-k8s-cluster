@@ -51,12 +51,15 @@ coreos:
         [Service]
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kubelet
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
-        ExecStartPre=/usr/bin/wget -N -P /tmp http://__CLUSTER_PREFIX__-master/calico-cni.tgz
-        ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni.tgz
+        ExecStartPre=/usr/bin/wget -N -P /tmp http://__CLUSTER_PREFIX__-master/cni.tgz
         ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
-        ExecStartPre=/usr/bin/cp /opt/calico/loopback /opt/cni/bin/loopback
+        ExecStartPre=/usr/bin/tar -C /opt/cni/bin -xzf /tmp/cni.tgz
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/scale-tester
+        ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-cni
+        ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-node
         ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/scale-tester caseydavenport/scale-tester
+        ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-cni __CALICO_CNI_IMAGE__ 
+        ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-node __NODE_IMAGE__ 
         ExecStartPre=/usr/bin/docker pull gcr.io/google_containers/pause:0.8.0
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
@@ -67,7 +70,6 @@ coreos:
         --api-servers=http://__CLUSTER_PREFIX__-master:8080 \
         --network-plugin-dir=/etc/cni/net.d \
         --network-plugin=cni \
-        --hostname-override=$private_ipv4 \
         --max-pods=110 \
         --logtostderr=true
         Restart=always
