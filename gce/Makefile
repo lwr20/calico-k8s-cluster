@@ -137,8 +137,9 @@ get-prom-data:
 	-ssh -A -o StrictHostKeyChecking=no -o LogLevel=quiet core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) ssh -o LogLevel=quiet -o StrictHostKeyChecking=no $(PREFIX)-prom sudo tar -cvzf - /var/log/prom_data > timings/prom_data.tgz
 
 get-pod-logs:
+	# -P added to limit how many processes can get kicked off at a time for log collection.
 	@mkdir -p timings
-	-kubectl get pods | grep getter | cut -f 1 -d " " | xargs -iPOD sh -c 'kubectl logs POD | gzip > timings/POD.log.gz &'
+	-kubectl get pods | grep getter | cut -f 1 -d " " | xargs -P 128 -n 1 -IPOD sh -c 'kubectl logs POD | gzip > timings/POD.log.gz'
 
 $(LOG_RETRIEVAL_TARGETS): job%:
 	@mkdir -p timings
@@ -276,8 +277,8 @@ deploy-master:
 	  echo "master node started."
 
 deploy-nodes:
-	echo $(NODE_NAMES) | xargs -n250 | xargs -I{} sh -c 'gcloud compute instances create \
-	  {} \
+	gcloud compute instances create \
+	  $(NODE_NAMES) \
 	  --zone $(GCE_REGION) \
 	  --image-project coreos-cloud \
 	  --image $(GCE_IMAGE_NAME) \
@@ -288,7 +289,7 @@ deploy-nodes:
 	  echo "Waiting for creation of this batch of worker nodes to finish..."; \
 		wait; \
 		echo "Batch of nodes created. Waiting 120s for cluster to settle down..."; \
-	  sleep 120;'
+	  sleep 120;
 
 deploy-prom:
 	-gcloud compute instances create \
