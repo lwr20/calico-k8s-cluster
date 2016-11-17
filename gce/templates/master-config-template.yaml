@@ -154,6 +154,10 @@ coreos:
         --master=$private_ipv4:8080 \
         --service-account-private-key-file=/var/run/kubernetes/apiserver.key \
         --root-ca-file=/var/run/kubernetes/apiserver.crt \
+        --cloud-provider=gce \
+        --allocate-node-cidrs=true \
+        --configure-cloud-routes=true \
+        --cluster-cidr=__POD_CIDR__ \
         --logtostderr=true
         Restart=always
         RestartSec=10
@@ -200,6 +204,7 @@ coreos:
         --cluster-domain=cluster.local \
         --api-servers=http://$private_ipv4:8080 \
         --config=/etc/kubernetes/manifests \
+        --cloud-provider=gce \
         --network-plugin-dir=/etc/cni/net.d \
         --network-plugin=cni \
         --logtostderr=true

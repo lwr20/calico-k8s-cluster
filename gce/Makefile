@@ -23,6 +23,11 @@ NODE_IMAGE:=calico/node:${CALICO_CONT_VER}
 CNI_VER:=v0.3.0
 POD_CIDR:=192.168.0.0/16
 
+# GCE Scopes for the master.  These grant permissions to the master 
+# to read / write various bits of GCE config (e.g routes).
+# For ease, just allow all scopes.
+MASTER_SCOPES:=https://www.googleapis.com/auth/cloud-platform
+
 IPAM_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico-ipam
 CNI_PLUGIN_URL:=https://github.com/containernetworking/cni/releases/download/$(CNI_VER)/cni-$(CNI_VER).tgz
 # URL of pre-configured Grafana DB.  Currently, this is empty apart from
@@ -255,6 +260,7 @@ deploy-master:
 	  --image-project coreos-cloud \
 	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(MASTER_INSTANCE_TYPE) \
+	  --scopes $(MASTER_SCOPES) \
 	  --local-ssd interface=scsi \
 	  --metadata-from-file user-data=build/master-config-template.yaml & \
 	  echo "Waiting for creation of master node to finish..."; \
