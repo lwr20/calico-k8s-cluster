@@ -6,6 +6,7 @@ NUM_PODS:=300
 GCE_REGION:=us-central1-f
 GCE_PROJECT:=unique-caldron-775
 GCE_IMAGE_NAME:=coreos-stable-1122-3-0-v20161021
+GCE_IMAGE_PROJECT:=coreos-cloud
 MASTER_INSTANCE_TYPE:=n1-standard-16
 NODE_INSTANCE_TYPE:=n1-highcpu-4
 ETCD_INSTANCE_TYPE:=n1-standard-16
@@ -20,8 +21,12 @@ CALICO_CNI_VER:=v1.5.1
 CALICO_CNI_IMAGE:=calico/cni:${CALICO_CNI_VER}
 CALICO_CONT_VER:=v0.23.0
 NODE_IMAGE:=calico/node:${CALICO_CONT_VER}
+CALICOCTL_IMAGE:=calico/ctl:${CALICO_CONT_VER}
 CNI_VER:=v0.3.0
 POD_CIDR:=192.168.0.0/16
+
+# Image used by kubelet as infrastructure container.
+POD_INFRA_IMAGE=gcr.io/google_containers/pause:0.8.0
 
 # GCE Scopes for the master.  These grant permissions to the master 
 # to read / write various bits of GCE config (e.g routes).
@@ -257,10 +262,11 @@ deploy-master:
 	-gcloud compute instances create \
 	  $(PREFIX)-master \
 	  --zone $(GCE_REGION) \
-	  --image-project coreos-cloud \
+	  --image-project $(GCE_IMAGE_PROJECT) \
 	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(MASTER_INSTANCE_TYPE) \
 	  --scopes $(MASTER_SCOPES) \
+	  --can-ip-forward \
 	  --local-ssd interface=scsi \
 	  --metadata-from-file user-data=build/master-config-template.yaml & \
 	  echo "Waiting for creation of master node to finish..."; \
@@ -271,11 +277,12 @@ deploy-nodes:
 	gcloud compute instances create \
 	  $(NODE_NAMES) \
 	  --zone $(GCE_REGION) \
-	  --image-project coreos-cloud \
+	  --image-project $(GCE_IMAGE_PROJECT) \
 	  --image $(GCE_IMAGE_NAME) \
 	  --machine-type $(NODE_INSTANCE_TYPE) \
 	  --metadata-from-file user-data=build/node-config-template.yaml \
 	  --no-address \
+	  --can-ip-forward \
 	  --tags no-ip & \
 	  echo "Waiting for creation of this batch of worker nodes to finish..."; \
 		wait; \
@@ -332,6 +339,7 @@ build/etcd-template.yaml: templates/etcd-template.yaml Makefile local-settings.m
 	  sed "s~__CALICO_POLICY_VER__~$(CALICO_POLICY_VER)~g" | \
 	  sed "s~__CALICO_POLICY_IMAGE__~$(CALICO_POLICY_IMAGE)~g" | \
 	  sed "s~__CALICO_CNI_IMAGE__~$(CALICO_CNI_IMAGE)~g" | \
+	  sed "s~__POD_INFRA_IMAGE__~$(POD_INFRA_IMAGE)~g" | \
 	  sed "s~__POD_CIDR__~$(POD_CIDR)~g" | \
 	  sed "s~__CALICOCTL_URL__~$(CALICOCTL_URL)~g" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
@@ -340,6 +348,7 @@ build/etcd-template.yaml: templates/etcd-template.yaml Makefile local-settings.m
 	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
 	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
+	  sed "s~__CALICOCTL_IMAGE__~$(CALICOCTL_IMAGE)~g" | \
 	  sed "s~__GETTER_IMAGE__~$(GETTER_IMAGE)~g" | \
 	  sed "s~__CNI_PLUGIN_URL__~$(CNI_PLUGIN_URL)~g" | \
 	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
@@ -353,6 +362,7 @@ build/%: templates/% Makefile local-settings.mk build/grafana-json-url build/pro
 	  sed "s~__CALICO_POLICY_VER__~$(CALICO_POLICY_VER)~g" | \
 	  sed "s~__CALICO_POLICY_IMAGE__~$(CALICO_POLICY_IMAGE)~g" | \
 	  sed "s~__CALICO_CNI_IMAGE__~$(CALICO_CNI_IMAGE)~g" | \
+	  sed "s~__POD_INFRA_IMAGE__~$(POD_INFRA_IMAGE)~g" | \
 	  sed "s~__POD_CIDR__~$(POD_CIDR)~g" | \
 	  sed "s~__CALICOCTL_URL__~$(CALICOCTL_URL)~g" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
@@ -361,6 +371,7 @@ build/%: templates/% Makefile local-settings.mk build/grafana-json-url build/pro
 	  sed "s~__CLUSTER_PREFIX__~$(PREFIX)~g" | \
 	  sed "s~__GCE_PROJECT__~$(GCE_PROJECT)~g" | \
 	  sed "s~__NODE_IMAGE__~$(NODE_IMAGE)~g" | \
+	  sed "s~__CALICOCTL_IMAGE__~$(CALICOCTL_IMAGE)~g" | \
 	  sed "s~__GETTER_IMAGE__~$(GETTER_IMAGE)~g" | \
 	  sed "s~__CNI_PLUGIN_URL__~$(CNI_PLUGIN_URL)~g" | \
 	  sed "s~__GRAFANA_DB_URL__~$(GRAFANA_DB_URL)~g" | \
@@ -390,9 +401,16 @@ deploy-etcd: $(ETCD_CONFIG_FILENAMES)
 	wait; \
 	echo "etcd nodes started."
 
+clean: gce-cleanup
+	rm -rf build/*
+
 gce-cleanup:
+	# Clean up any instances.
 	gcloud compute instances list --zones $(GCE_REGION) -r '$(PREFIX).*' | \
 	  tail -n +2 | cut -f1 -d' ' | xargs gcloud compute instances delete --zone $(GCE_REGION)
+	# Clean up any routes created by the cluster.
+	gcloud compute routes list -r '$(PREFIX).*' | \
+	  tail -n +2 | cut -f1 -d' ' | xargs gcloud compute routes delete 
 
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'

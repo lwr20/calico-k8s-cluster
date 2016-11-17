@@ -157,6 +157,7 @@ coreos:
         --cloud-provider=gce \
         --allocate-node-cidrs=true \
         --configure-cloud-routes=true \
+        --cluster-name=__CLUSTER_PREFIX__ \
         --cluster-cidr=__POD_CIDR__ \
         --logtostderr=true
         Restart=always
@@ -207,6 +208,7 @@ coreos:
         --cloud-provider=gce \
         --network-plugin-dir=/etc/cni/net.d \
         --network-plugin=cni \
+        --pod-infra-container-image=__POD_INFRA_IMAGE__ \ 
         --logtostderr=true
         Restart=always
         RestartSec=10
