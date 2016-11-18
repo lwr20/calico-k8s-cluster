@@ -21,6 +21,7 @@ These instructions have been tested on Ubuntu 14.04.  They are likely to work wi
   * `make gce-create`, this runs several gcloud commands to start the Kubernetes cluster; then it uses ssh to forward various local ports to the cluster.
   * Configure Kubernetes for the start of the test:
     * Wait for the hosts to check in with Kubernetes: `watch kubectl get nodes`.  You should see an entry in state "Ready" for each compute host.
+    * Install Calico: `kubectl apply -f build/manifests/calico.yaml`
     * `make prepare-getter` will check that the policy is in place and create all the namespaces, RCs, nginx pods, etc for the test run.
   * Run the test:
     * Either:
