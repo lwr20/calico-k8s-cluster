@@ -133,6 +133,7 @@ coreos:
         --allow-privileged=true \
         --etcd-servers=http://$private_ipv4:2379 \
         --runtime-config=extensions/v1beta1=true,extensions/v1beta1/networkpolicies=true \
+        --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota \
         --insecure-bind-address=0.0.0.0 \
         --service-cluster-ip-range=10.100.0.0/24 \
         --logtostderr=true

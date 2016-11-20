@@ -23,7 +23,7 @@ CALICO_CONT_VER:=v0.23.0
 NODE_IMAGE:=calico/node:${CALICO_CONT_VER}
 CALICOCTL_IMAGE:=calico/ctl:${CALICO_CONT_VER}
 CNI_VER:=v0.3.0
-POD_CIDR:=192.168.0.0/16
+POD_CIDR:=10.244.0.0/16
 
 # Image used by kubelet as infrastructure container.
 POD_INFRA_IMAGE=gcr.io/google_containers/pause:0.8.0
