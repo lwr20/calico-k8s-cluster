@@ -45,39 +45,43 @@ pod_logs_q = Queue.Queue()
 
 
 def collect_data():
-    # Get all pod names in calico-system.
-    print "Getting all pods in calico-system namespace"
+    # Get all pod names in kube-system.
+    print "Getting all pods in kube-system namespace"
     all_pods = check_output(["kubectl", "get",
-                             "pods", "--namespace=calico-system",
+                             "pods", "--namespace=kube-system",
                              "-o", "json"])
     all_pods = json.loads(all_pods)["items"]
 
-    # Get calico-k8s-policy-agent pod metadata.
-    pod_name = str(all_pods[0]["metadata"]["name"])
+    # Get calico-k8s-policy-agent pod metadata if it is running.
+    pod_name = ""
+    for p in all_pods:
+        if "policy-controller" in p["metadata"]["name"]:
+            pod_name = str(all_pods[0]["metadata"]["name"])
 
     # Extract logs.
-    print "Getting calico policy controller logs"
-    calico_logs = check_output(["kubectl", "logs", "--namespace=calico-system",
-                                pod_name, "-c", "k8s-policy-controller"])
-    write_data("calico-system", all_pods)
+    if pod_name:
+        print "Getting calico policy controller logs"
+        calico_logs = check_output(["kubectl", "logs", "--namespace=kube-system",
+                                    pod_name, "-c", "k8s-policy-controller"])
+        write_data("kube-system", all_pods)
 
-    # Extract queue / total processing times from the logs.
-    queue_times = queue_time_re.findall(calico_logs)
-    process_times = proc_time_re.findall(calico_logs)
+        # Extract queue / total processing times from the logs.
+        queue_times = queue_time_re.findall(calico_logs)
+        process_times = proc_time_re.findall(calico_logs)
 
-    # Store the time spent in queue per-pod.
-    for pod, time in queue_times:
-        data_by_pod.setdefault(pod, {})["queue_time"] = float(time)
+        # Store the time spent in queue per-pod.
+        for pod, time in queue_times:
+            data_by_pod.setdefault(pod, {})["queue_time"] = float(time)
 
-    # Store the total process time per-pod.
-    for pod, time in process_times:
-        data_by_pod.setdefault(pod, {})["process_time"] = float(time)
+        # Store the total process time per-pod.
+        for pod, time in process_times:
+            data_by_pod.setdefault(pod, {})["process_time"] = float(time)
 
-    # Get queue lengths and CPU, MEM usage.
-    qlengths = qlen_re.findall(calico_logs)
-    for _pod, length, t in qlengths:
-        data_by_pod.setdefault("qlengths", []).append(length)
-        data_by_pod.setdefault("time", []).append(float(t))
+        # Get queue lengths and CPU, MEM usage.
+        qlengths = qlen_re.findall(calico_logs)
+        for _pod, length, t in qlengths:
+            data_by_pod.setdefault("qlengths", []).append(length)
+            data_by_pod.setdefault("time", []).append(float(t))
 
     # Get all pod names.
     print "Getting all pods in default namespace"
