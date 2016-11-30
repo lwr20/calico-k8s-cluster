@@ -27,6 +27,32 @@ coreos:
   update:
     reboot-strategy: off
   units:
+    - name: download.service
+      command: start
+      content: |
+        [Unit]
+        Description=Downloads files to nodes.
+        After=docker.service
+        Requires=docker.service
+        [Service]
+        Type=oneshot
+        TimeoutStartSec=1800 #seconds #https://www.freedesktop.org/software/systemd/man/systemd.service.html#TimeoutStartSec=
+        RemainAfterExit=yes
+        ExecStart=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kubelet
+        ExecStart=/usr/bin/chmod +x /opt/bin/kubelet
+        ExecStart=/usr/bin/wget -N -P /tmp http://__CLUSTER_PREFIX__-master/cni.tgz
+        ExecStart=/usr/bin/mkdir -p /opt/cni/bin
+        ExecStart=/usr/bin/tar -C /opt/cni/bin -xzf /tmp/cni.tgz
+        #ExecStart=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/scale-tester
+        #ExecStart=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-cni
+        #ExecStart=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-node
+        #ExecStart=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/scale-tester caseydavenport/scale-tester
+        #ExecStart=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-cni __CALICO_CNI_IMAGE__
+        #ExecStart=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-node __NODE_IMAGE__
+        #ExecStart=/usr/bin/docker pull __POD_INFRA_IMAGE__
+        ExecStart=/usr/bin/wget -N -P /opt/bin  https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kube-proxy
+        ExecStart=/usr/bin/chmod +x /opt/bin/kube-proxy
+
     - name: "docker.service"
       drop-ins:
         - name: "50-insecure-registry.conf"
@@ -45,22 +71,19 @@ coreos:
         Description=Kubernetes Kubelet
         Documentation=https://github.com/kubernetes/kubernetes
         After=docker.service
+        # After=download.service
         After=etcd2.service
         Requires=docker.service
+        # Requires=download.service
 
         [Service]
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kubelet
-        ExecStartPre=/usr/bin/chmod +x /opt/bin/kubelet
-        ExecStartPre=/usr/bin/wget -N -P /tmp http://__CLUSTER_PREFIX__-master/cni.tgz
-        ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
-        ExecStartPre=/usr/bin/tar -C /opt/cni/bin -xzf /tmp/cni.tgz
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/scale-tester
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-cni
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-node
         ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/scale-tester caseydavenport/scale-tester
-        ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-cni __CALICO_CNI_IMAGE__ 
-        ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-node __NODE_IMAGE__ 
-        ExecStartPre=/usr/bin/docker pull __POD_INFRA_IMAGE__ 
+        ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-cni __CALICO_CNI_IMAGE__
+        ExecStartPre=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-node __NODE_IMAGE__
+        ExecStartPre=/usr/bin/docker pull __POD_INFRA_IMAGE__
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \
@@ -85,9 +108,9 @@ coreos:
         [Unit]
         Description=Kubernetes Proxy
         Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+        After=download.service
+        Requires=download.service
         [Service]
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin  https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kube-proxy
-        ExecStartPre=/usr/bin/chmod +x /opt/bin/kube-proxy
         ExecStart=/opt/bin/kube-proxy \
         --master=http://__CLUSTER_PREFIX__-master:8080 \
         --proxy-mode=iptables \

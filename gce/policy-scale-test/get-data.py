@@ -52,17 +52,17 @@ def collect_data():
                              "-o", "json"])
     all_pods = json.loads(all_pods)["items"]
 
-    # Get calico-k8s-policy-agent pod metadata if it is running.
+    # Get calico-policy-controller (agent) pod metadata if it is running.
     pod_name = ""
     for p in all_pods:
-        if "policy-controller" in p["metadata"]["name"]:
-            pod_name = str(all_pods[0]["metadata"]["name"])
-
+        if "calico-policy-controller" in p["metadata"]["name"]:
+            pod_name = str(p["metadata"]["name"])
+    
     # Extract logs.
     if pod_name:
         print "Getting calico policy controller logs"
         calico_logs = check_output(["kubectl", "logs", "--namespace=kube-system",
-                                    pod_name, "-c", "k8s-policy-controller"])
+                                    pod_name, "-c", "calico-policy-controller"])
         write_data("kube-system", all_pods)
 
         # Extract queue / total processing times from the logs.
@@ -222,9 +222,13 @@ def display_data():
 
     # Print out some data.
     startup_time = (max_x - min_x).seconds
-    print "Time to start %s pods: %s (%s pods/s)" % (len(x),
-                                                     startup_time,
-                                                     len(x)/startup_time)
+    if startup_time != 0:  
+        print "Time to start %s pods: %s seconds (%s pods/s)" % (len(x),
+                                                         startup_time,
+                                                         len(x)/startup_time)
+    else: 
+        print "Time to start %s pods: %s seconds" % (len(x), startup_time)
+    
     print "99th percentile: %s" % percentile
     print "Average elapsed time: %s" % average
 

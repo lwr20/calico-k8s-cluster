@@ -135,7 +135,8 @@ get-results:
 
 # See http://stackoverflow.com/a/12110773/61318
 #make -j12 get-diags
-get-diags: describe-nodes describe-pods describe-services describe-rc describe-ep get-prom-data $(LOG_RETRIEVAL_TARGETS) get-pod-logs
+get-diags: describe-nodes describe-pods describe-services describe-rc describe-ep get-prom-data $(LOG_RETRIEVAL_TARGETS)
+get-diags2: describe-services describe-rc describe-ep get-prom-data $(LOG_RETRIEVAL_TARGETS)
 
 get-prom-data:
 	@mkdir -p timings
