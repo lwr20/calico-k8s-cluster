@@ -44,6 +44,7 @@ while True:
     if now() > (start_time + timedelta(seconds=slowtime)):
         timeout = slowperiod
 
+_log.debug(os.getenv("HOSTNAME"))
 _log.debug("Started: %s.%s", start_time.second, (start_time.microsecond / 1000))
 _log.debug("Completed: %s.%s", end_time.second, (end_time.microsecond / 1000))
 
