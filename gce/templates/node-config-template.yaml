@@ -19,6 +19,14 @@ write_files:
       # nameserver 10.100.0.10
       nameserver 169.254.169.254
       search default.svc.cluster.local svc.cluster.local cluster.local c.__GCE_PROJECT__.internal
+  # Used for felix stats
+  - path: /etc/calico/felix.cfg
+    owner: root
+    permissions: 0755
+    content: |
+      [global]
+      PrometheusMetricsEnabled true
+
 coreos:
   etcd2:
     proxy: on
@@ -36,20 +44,14 @@ coreos:
         Requires=docker.service
         [Service]
         Type=oneshot
-        TimeoutStartSec=1800 #seconds #https://www.freedesktop.org/software/systemd/man/systemd.service.html#TimeoutStartSec=
+        #seconds #https://www.freedesktop.org/software/systemd/man/systemd.service.html#TimeoutStartSec=
+        TimeoutStartSec=1800
         RemainAfterExit=yes
         ExecStart=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kubelet
         ExecStart=/usr/bin/chmod +x /opt/bin/kubelet
         ExecStart=/usr/bin/wget -N -P /tmp http://__CLUSTER_PREFIX__-master/cni.tgz
         ExecStart=/usr/bin/mkdir -p /opt/cni/bin
         ExecStart=/usr/bin/tar -C /opt/cni/bin -xzf /tmp/cni.tgz
-        #ExecStart=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/scale-tester
-        #ExecStart=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-cni
-        #ExecStart=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-node
-        #ExecStart=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/scale-tester caseydavenport/scale-tester
-        #ExecStart=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-cni __CALICO_CNI_IMAGE__
-        #ExecStart=/usr/bin/docker tag __CLUSTER_PREFIX__-master:5000/calico-node __NODE_IMAGE__
-        #ExecStart=/usr/bin/docker pull __POD_INFRA_IMAGE__
         ExecStart=/usr/bin/wget -N -P /opt/bin  https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kube-proxy
         ExecStart=/usr/bin/chmod +x /opt/bin/kube-proxy
 
@@ -71,10 +73,9 @@ coreos:
         Description=Kubernetes Kubelet
         Documentation=https://github.com/kubernetes/kubernetes
         After=docker.service
-        # After=download.service
         After=etcd2.service
         Requires=docker.service
-        # Requires=download.service
+        Requires=download.service
 
         [Service]
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/scale-tester

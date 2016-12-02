@@ -156,6 +156,9 @@ spec:
               readOnly: false
             - mountPath: /calico-secrets
               name: etcd-certs
+            # Used for felix stats
+            - mountPath: /etc/calico # added for felix stats
+              name: calico-config    # added for felix stats
         # This container installs the Calico CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
@@ -201,6 +204,10 @@ spec:
         - name: etcd-certs
           secret:
             secretName: calico-etcd-secrets
+        # Used for felix stats
+        - name: calico-config
+          hostPath:
+            path: /etc/calico
 
 ---
 
