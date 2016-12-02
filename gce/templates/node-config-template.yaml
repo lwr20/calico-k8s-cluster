@@ -49,7 +49,7 @@ coreos:
         RemainAfterExit=yes
         ExecStart=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kubelet
         ExecStart=/usr/bin/chmod +x /opt/bin/kubelet
-        ExecStart=/usr/bin/wget -N -P /tmp http://__CLUSTER_PREFIX__-master/cni.tgz
+        ExecStart=/usr/bin/wget --retry-connrefused --waitretry=30 --timeout=20 -N -P /tmp http://__CLUSTER_PREFIX__-master/cni.tgz
         ExecStart=/usr/bin/mkdir -p /opt/cni/bin
         ExecStart=/usr/bin/tar -C /opt/cni/bin -xzf /tmp/cni.tgz
         ExecStart=/usr/bin/wget -N -P /opt/bin  https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kube-proxy
