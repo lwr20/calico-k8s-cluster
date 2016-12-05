@@ -13,16 +13,23 @@ ETCD_INSTANCE_TYPE:=n1-standard-16
 PROM_INSTANCE_TYPE:=n1-standard-4
 RR_INSTANCE_TYPE:=n1-standard-4
 PREFIX:=kube-scale
-GETTER_IMAGE:=caseydavenport/scale-tester:latest
+
+# Calico / Kubernetes versions.
 K8S_VER:=v1.4.5
-CALICO_POLICY_VER:=v0.5.0
-CALICO_POLICY_IMAGE:=calico/kube-policy-controller:${CALICO_POLICY_VER}
-CALICO_CNI_VER:=v1.5.1
-CALICO_CNI_IMAGE:=calico/cni:${CALICO_CNI_VER}
+CALICO_POLICY_VER:=v0.5.1
 CALICO_CONT_VER:=v0.23.0
+CALICO_CNI_VER:=v1.5.1
+CNI_VER:=v0.3.0
+
+# Images, based on above versions.
+GETTER_IMAGE:=calico/getter
+FLANNEL_IMAGE:=quay.io/coreos/flannel-git:v0.6.1-28-g5dde68d-amd64
+CALICO_POLICY_IMAGE:=calico/kube-policy-controller:${CALICO_POLICY_VER}
+CALICO_CNI_IMAGE:=calico/cni:${CALICO_CNI_VER}
 NODE_IMAGE:=calico/node:${CALICO_CONT_VER}
 CALICOCTL_IMAGE:=calico/ctl:${CALICO_CONT_VER}
-CNI_VER:=v0.3.0
+
+# IP range to use for pods.
 POD_CIDR:=10.244.0.0/16
 
 # Image used by kubelet as infrastructure container.
@@ -341,6 +348,7 @@ build/etcd-template.yaml: templates/etcd-template.yaml Makefile local-settings.m
 	  sed "s~__CALICO_POLICY_IMAGE__~$(CALICO_POLICY_IMAGE)~g" | \
 	  sed "s~__CALICO_CNI_IMAGE__~$(CALICO_CNI_IMAGE)~g" | \
 	  sed "s~__POD_INFRA_IMAGE__~$(POD_INFRA_IMAGE)~g" | \
+	  sed "s~__FLANNEL_IMAGE__~$(FLANNEL_IMAGE)~g" | \
 	  sed "s~__POD_CIDR__~$(POD_CIDR)~g" | \
 	  sed "s~__CALICOCTL_URL__~$(CALICOCTL_URL)~g" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \
@@ -364,6 +372,7 @@ build/%: templates/% Makefile local-settings.mk build/grafana-json-url build/pro
 	  sed "s~__CALICO_POLICY_IMAGE__~$(CALICO_POLICY_IMAGE)~g" | \
 	  sed "s~__CALICO_CNI_IMAGE__~$(CALICO_CNI_IMAGE)~g" | \
 	  sed "s~__POD_INFRA_IMAGE__~$(POD_INFRA_IMAGE)~g" | \
+	  sed "s~__FLANNEL_IMAGE__~$(FLANNEL_IMAGE)~g" | \
 	  sed "s~__POD_CIDR__~$(POD_CIDR)~g" | \
 	  sed "s~__CALICOCTL_URL__~$(CALICOCTL_URL)~g" | \
 	  sed "s~__ETCD_PEER_URLS__~$(ETCD_PEER_URLS)~g" | \

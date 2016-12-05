@@ -79,14 +79,15 @@ spec:
         # container programs network policy and routes on each
         # host.
         - name: calico-node
-          image: calico/node:v1.0.0-beta 
-          imagePullPolicy: Always
+          image: __NODE_IMAGE__
           env:
             # Use Kubernetes API as the backing datastore.
             - name: DATASTORE_TYPE
               value: "kubernetes"
             # Enable felix debug logging.
             - name: FELIX_LOGSEVERITYSYS 
+              value: "none"
+            - name: FELIX_LOGSEVERITYSCREEN 
               value: "debug"
             # Don't enable BGP. 
             - name: CALICO_NETWORKING_BACKEND 
@@ -109,8 +110,7 @@ spec:
         # This container installs the Calico CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: calico/cni:v1.5.0 
-          imagePullPolicy: Always
+          image: __CALICO_CNI_IMAGE__ 
           command: ["/install-cni.sh"]
           env:
             # The CNI network config to install on each node.
@@ -127,7 +127,7 @@ spec:
         # This container runs flannel using the kube-subnet-mgr backend
         # for allocating subnets.
         - name: kube-flannel
-          image: quay.io/coreos/flannel-git:v0.6.1-28-g5dde68d-amd64
+          image: __FLANNEL_IMAGE__ 
           command: [ "/opt/bin/flanneld", "--ip-masq", "--kube-subnet-mgr" ]
           securityContext:
             privileged: true

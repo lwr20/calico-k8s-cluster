@@ -15,7 +15,7 @@
 FROM alpine:edge 
 
 # Install the system packages needed for building the PyInstaller based binary
-RUN apk -U add --virtual temp python-dev py-pip alpine-sdk python 
+RUN apk -U add --virtual temp python-dev py2-pip alpine-sdk python 
 
 # Install python dependencies
 RUN pip install datetime requests 
