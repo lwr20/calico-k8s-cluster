@@ -19,13 +19,6 @@ write_files:
       # nameserver 10.100.0.10
       nameserver 169.254.169.254
       search default.svc.cluster.local svc.cluster.local cluster.local c.__GCE_PROJECT__.internal
-  # Used for felix stats
-  - path: /etc/calico/felix.cfg
-    owner: root
-    permissions: 0755
-    content: |
-      [global]
-      PrometheusMetricsEnabled true
 
 coreos:
   etcd2:
