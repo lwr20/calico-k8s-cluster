@@ -111,6 +111,9 @@ spec:
                 configMapKeyRef:
                   name: calico-config
                   key: etcd_endpoints
+            # Enable felix PrometheusMetricsEnabled.
+            - name: FELIX_PROMETHEUSMETRICSENABLED
+              value: "true"
             # Choose the backend to use. 
             - name: CALICO_NETWORKING_BACKEND 
               valueFrom:
