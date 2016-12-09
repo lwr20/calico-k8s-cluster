@@ -45,6 +45,8 @@ while True:
         timeout = slowperiod
 
 _log.debug(os.getenv("HOSTNAME"))
+_log.debug("Full Starttime: %s", start_time)
+_log.debug("Full Completetime: %s", end_time)
 _log.debug("Started: %s.%s", start_time.second, (start_time.microsecond / 1000))
 _log.debug("Completed: %s.%s", end_time.second, (end_time.microsecond / 1000))
 
