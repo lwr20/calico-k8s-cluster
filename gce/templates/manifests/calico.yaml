@@ -114,7 +114,13 @@ spec:
             # Enable felix PrometheusMetricsEnabled.
             - name: FELIX_PROMETHEUSMETRICSENABLED
               value: "true"
-            # Choose the backend to use. 
+            # Disable felix LogSeveritySys
+            - name: FELIX_LOGSEVERITYSYS
+              value: "none"
+            # Set felix LogSeverityScreen
+            - name: FELIX_LOGSEVERITYSCREEN
+              value: "INFO"
+            # Choose the backend to use.
             - name: CALICO_NETWORKING_BACKEND 
               valueFrom:
                 configMapKeyRef:
