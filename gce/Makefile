@@ -243,7 +243,7 @@ build/dashboards.tgz:
 build/grafana-json-url: Makefile local-settings.mk templates/dashboards/*.json build/dashboards.tgz
 	gsutil cp build/dashboards.tgz gs://$(GCE_BUCKET)/dashboards.tgz
 	gsutil setmeta \
-	  -h "Cache-Control:private, max-age=0, no-transform" \
+	  -h "Cache-Control:private,max-age=0,no-transform" \
 	  gs://$(GCE_BUCKET)/dashboards.tgz
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/dashboards.tgz
 	echo "https://storage.googleapis.com/$(GCE_BUCKET)/dashboards.tgz" > build/grafana-json-url
@@ -251,7 +251,7 @@ build/grafana-json-url: Makefile local-settings.mk templates/dashboards/*.json b
 build/prom-conf-url: Makefile local-settings.mk build/prometheus.yml
 	gsutil cp build/prometheus.yml gs://$(GCE_BUCKET)/prometheus.yml
 	gsutil setmeta \
-	  -h "Cache-Control:private, max-age=0, no-transform" \
+	  -h "Cache-Control:private,max-age=0,no-transform" \
 	  gs://$(GCE_BUCKET)/prometheus.yml
 	gsutil acl ch -u AllUsers:R gs://$(GCE_BUCKET)/prometheus.yml
 	echo "https://storage.googleapis.com/$(GCE_BUCKET)/prometheus.yml" > build/prom-conf-url
@@ -424,15 +424,15 @@ gce-cleanup:
 
 gce-forward-ports:
 	@-pkill -f '8080:localhost:8080'
-	bash -c 'until ssh -o LogLevel=quiet -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) date; do echo "Trying to forward ports"; sleep 1; done'
-	ssh -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+	bash -c 'until gcloud compute ssh core@$(PREFIX)-master -- -o LogLevel=quiet -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no date; do echo "Trying to forward ports"; sleep 1; done'
+	gcloud compute ssh core@$(PREFIX)-master -- -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
 	    -L 8080:localhost:8080 \
 	    -L 2379:localhost:2379 \
 	    -L 4194:localhost:4194 \
 	    -L 9090:$(PREFIX)-prom:9090 \
 	    -L 3000:$(PREFIX)-prom:3000 \
 	    -o LogLevel=quiet -nNT \
-	    core@$(PREFIX)-master.$(GCE_REGION).$(GCE_PROJECT) &
+	    &
 	@echo
 	@echo "Forwarded ports:"
 	@echo "- Grafana dashboard at http://localhost:3000/dashboard/file/grafana-dash.json"
