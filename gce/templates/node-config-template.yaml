@@ -9,7 +9,7 @@ write_files:
       #!/bin/bash
       # Last line of calicoctl diags looks like this:
       # "  curl --upload-file /tmp/tmpRACajJ/diags-260516_123004.tar.gz https://transfer.sh/diags-260516_123004.tar.gz"
-      FILE=`calicoctl diags | tail -1 | cut -f 5 -d " "`
+      FILE=`calicoctl node diags | tail -1 | cut -f 5 -d " "`
       cat ${FILE}
 
   - path: /etc/resolv.conf
@@ -71,6 +71,9 @@ coreos:
         Requires=download.service
 
         [Service]
+        # calicoctl needed for diags collection
+        ExecStartPre=/usr/bin/wget -N -P /opt/bin http://__CLUSTER_PREFIX__-master/calicoctl
+        ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/scale-tester
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-cni
         ExecStartPre=/usr/bin/docker pull __CLUSTER_PREFIX__-master:5000/calico-node

@@ -23,7 +23,7 @@ write_files:
     permissions: 0755
     content: |
       #!/bin/bash
-      FILE=`calicoctl diags | tail -1 | cut -f 5 -d " "`
+      FILE=`calicoctl node diags | tail -1 | cut -f 5 -d " "`
       cat ${FILE}
 
   # Need to configure localhost since GCE doesn't do it for us.
@@ -263,6 +263,9 @@ coreos:
 
         [Service]
         ExecStartPre=/usr/bin/wget -O /tmp/calicoctl __CALICOCTL_URL__
+        # Install calicoctl ready for diags collection
+        ExecStartPre=/usr/bin/cp /tmp/calicoctl /opt/bin/calicoctl
+        ExecStartPre=/usr/bin/chmod +x /opt/bin/calicoctl
         ExecStartPre=/usr/bin/wget -O /tmp/cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=-/usr/bin/docker kill mynginx
         ExecStartPre=-/usr/bin/docker rm mynginx
