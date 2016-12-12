@@ -23,7 +23,7 @@ write_files:
     permissions: 0755
     content: |
       #!/bin/bash
-      FILE=`calicoctl node diags | tail -1 | cut -f 5 -d " "`
+      FILE=`calicoctl node diags | tail -1 | cut -f 7 -d " "`
       cat ${FILE}
 
   # Need to configure localhost since GCE doesn't do it for us.

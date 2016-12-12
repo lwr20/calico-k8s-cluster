@@ -9,7 +9,7 @@ write_files:
       #!/bin/bash
       # Last line of calicoctl diags looks like this:
       # "  curl --upload-file /tmp/tmpRACajJ/diags-260516_123004.tar.gz https://transfer.sh/diags-260516_123004.tar.gz"
-      FILE=`calicoctl node diags | tail -1 | cut -f 5 -d " "`
+      FILE=`calicoctl node diags | tail -1 | cut -f 7 -d " "`
       cat ${FILE}
 
   - path: /etc/resolv.conf
