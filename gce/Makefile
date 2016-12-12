@@ -286,8 +286,8 @@ deploy-master:
 	  echo "master node started."
 
 deploy-nodes:
-	gcloud compute instances create \
-	  $(NODE_NAMES) \
+	echo $(NODE_NAMES) | xargs -n250 | xargs -I{} sh -c 'gcloud compute instances create \
+	  {} \
 	  --zone $(GCE_REGION) \
 	  --image-project $(GCE_IMAGE_PROJECT) \
 	  --image $(GCE_IMAGE_NAME) \
@@ -299,7 +299,7 @@ deploy-nodes:
 	  echo "Waiting for creation of this batch of worker nodes to finish..."; \
 		wait; \
 		echo "Batch of nodes created. Waiting 120s for cluster to settle down..."; \
-	  sleep 120;
+	  sleep 120';
 
 deploy-prom:
 	-gcloud compute instances create \
