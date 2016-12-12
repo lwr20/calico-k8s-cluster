@@ -286,8 +286,8 @@ deploy-master:
 	  echo "master node started."
 
 deploy-nodes:
-	echo $(NODE_NAMES) | xargs -n250 | xargs -I{} sh -c 'gcloud compute instances create \
-	  {} \
+	echo $(NODE_NAMES) | xargs -n250 | xargs -INODES sh -c 'gcloud compute instances create \
+	  NODES \
 	  --zone $(GCE_REGION) \
 	  --image-project $(GCE_IMAGE_PROJECT) \
 	  --image $(GCE_IMAGE_NAME) \
