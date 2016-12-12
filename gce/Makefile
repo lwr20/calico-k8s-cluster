@@ -140,8 +140,8 @@ scale-getter:
 	echo 'Now use "make gce-successful-pods" to check they are all running'
 
 get-results:
-	mkdir -p testdata
-	touch testdata/result.txt
+	mkdir -p policy-scale-test/testdata
+	touch policy-scale-test/testdata/result.txt
 	bash -c 'source ../env/bin/activate && cd $(CURRENT_DIR)/policy-scale-test && python get-data.py | tee testdata/result.txt'
 
 # See http://stackoverflow.com/a/12110773/61318
