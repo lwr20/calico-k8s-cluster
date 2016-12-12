@@ -24,10 +24,6 @@ CNI_VER:=v0.3.0
 # Images, based on above versions.
 GETTER_IMAGE:=calico/getter
 FLANNEL_IMAGE:=quay.io/coreos/flannel-git:v0.6.1-28-g5dde68d-amd64
-CALICO_POLICY_IMAGE:=calico/kube-policy-controller:${CALICO_POLICY_VER}
-CALICO_CNI_IMAGE:=calico/cni:${CALICO_CNI_VER}
-NODE_IMAGE:=calico/node:${CALICO_CONT_VER}
-CALICOCTL_IMAGE:=calico/ctl:${CALICO_CONT_VER}
 
 # IP range to use for pods.
 POD_CIDR:=10.244.0.0/16
@@ -40,14 +36,20 @@ POD_INFRA_IMAGE=gcr.io/google_containers/pause:0.8.0
 # For ease, just allow all scopes.
 MASTER_SCOPES:=https://www.googleapis.com/auth/cloud-platform
 
-IPAM_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico-ipam
-CNI_PLUGIN_URL:=https://github.com/containernetworking/cni/releases/download/$(CNI_VER)/cni-$(CNI_VER).tgz
 # URL of pre-configured Grafana DB.  Currently, this is empty apart from
 # having Prometheus pre-configured as the default data source.
 GRAFANA_DB_URL:=https://storage.googleapis.com/calico-scale-testing-files/grafana.db
-CALICOCTL_URL:=https://github.com/projectcalico/calico-containers/releases/download/${CALICO_CONT_VER}/calicoctl
 
 -include local-settings.mk
+
+# Calculated vars
+CALICOCTL_URL:=https://github.com/projectcalico/calico-containers/releases/download/$(CALICO_CONT_VER)/calicoctl
+IPAM_PLUGIN_URL:=https://github.com/projectcalico/calico-cni/releases/download/$(CALICO_CNI_VER)/calico-ipam
+CNI_PLUGIN_URL:=https://github.com/containernetworking/cni/releases/download/$(CNI_VER)/cni-$(CNI_VER).tgz
+CALICO_POLICY_IMAGE:=calico/kube-policy-controller:$(CALICO_POLICY_VER)
+CALICO_CNI_IMAGE:=calico/cni:$(CALICO_CNI_VER)
+NODE_IMAGE:=calico/node:$(CALICO_CONT_VER)
+CALICOCTL_IMAGE:=calico/ctl:$(CALICO_CONT_VER)
 
 # GCE bucket we use to store files we need to transfer to hosts.
 GCE_BUCKET:=$(PREFIX)-data
