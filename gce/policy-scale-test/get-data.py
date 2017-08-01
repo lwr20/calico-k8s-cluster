@@ -56,9 +56,9 @@ def collect_data():
     pod_name = str(all_pods[0]["metadata"]["name"])
 
     # Extract logs.
-    print "Getting calico policy agent logs"
+    print "Getting calico policy controller logs"
     calico_logs = check_output(["kubectl", "logs", "--namespace=calico-system",
-                                pod_name, "-c", "k8s-policy-agent"])
+                                pod_name, "-c", "k8s-policy-controller"])
     write_data("calico-system", all_pods)
 
     # Extract queue / total processing times from the logs.

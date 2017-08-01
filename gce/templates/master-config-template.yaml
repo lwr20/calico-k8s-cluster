@@ -54,20 +54,7 @@ write_files:
           }
       }
 
-  # NetworkPolicy ThirdPartyResource file.
-  - path: /home/core/networkpolicy.yaml
-    owner: root
-    permissions: 0755
-    content: |
-      kind: ThirdPartyResource
-      apiVersion: extensions/v1beta1
-      metadata:
-        name: network-policy.net.alpha.kubernetes.io
-      description: "Specification for a network isolation policy"
-      versions:
-        - name: v1alpha1
-
-  # Manifest which starts the Calico policy agent on the master.
+  # Manifest which starts the Calico policy controller on the master.
   - path: /etc/kubernetes/manifests/calico-policy.yaml
     owner: root
     permissions: 0755
@@ -75,18 +62,14 @@ write_files:
       apiVersion: v1
       kind: Pod
       metadata:
-        name: calico-policy-agent
+        name: calico-policy-controller
         namespace: calico-system
-        labels:
-          version: latest
-          projectcalico.org/app: "policy-agent"
       spec:
         hostNetwork: true
         containers:
-          # The Calico policy agent.
-          - name: k8s-policy-agent
-            image: calico/k8s-policy-agent:latest
-            imagePullPolicy: IfNotPresent
+          # The Calico policy controller.
+          - name: k8s-policy-controller
+            image: calico/kube-policy-controller:latest
             env:
               # Modify ETCD_ENDPOINTS to match your etcd cluster.
               - name: ETCD_ENDPOINTS
@@ -97,7 +80,7 @@ write_files:
                 value: "true"
           # Leader election container used by the policy agent.
           - name: leader-elector
-            image: gcr.io/google_containers/leader-elector:0.4
+            image: quay.io/calico/leader-elector:v0.1.0
             imagePullPolicy: IfNotPresent
             args:
               - "--election=calico-policy-election"
@@ -113,17 +96,19 @@ write_files:
     permissions: 0755
     content: |
       kind: NetworkPolicy
-      apiVersion: net.alpha.kubernetes.io/v1alpha1
+      apiVersion: extensions/v1beta1
       metadata:
         namespace: default
         name: nginx-service
       spec:
         podSelector:
-          k8s-app: nginx-server
+          matchLabels:
+            role: nginx-server
         ingress:
           - from:
-              - pods:
-                  role: getter
+              - podSelector:
+                  matchLabels:
+                    role: getter
             ports:
               - protocol: TCP
                 port: 80
@@ -201,7 +186,7 @@ coreos:
         ExecStart=/opt/bin/kube-apiserver \
         --allow-privileged=true \
         --etcd-servers=http://$private_ipv4:2379 \
-        --runtime-config=extensions/v1beta1=true,extensions/v1beta1/thirdpartyresources=true \
+        --runtime-config=extensions/v1beta1=true,extensions/v1beta1/networkpolicies=true \
         --insecure-bind-address=0.0.0.0 \
         --service-cluster-ip-range=10.100.0.0/24 \
         --logtostderr=true
@@ -281,7 +266,9 @@ coreos:
         ExecStartPre=/usr/bin/wget -O /tmp/calico-cni-archive/calico-cni.tgz __CNI_PLUGIN_URL__
         ExecStartPre=/usr/bin/tar -C /opt -xzf /tmp/calico-cni-archive/calico-cni.tgz
         ExecStartPre=/usr/bin/mkdir -p /opt/cni/bin
-        ExecStartPre=/usr/bin/ln -fs /opt/calico/calico /opt/cni/bin/calico
+        ExecStartPre=/usr/bin/cp /opt/calico/calico /opt/cni/bin/calico
+        ExecStartPre=/usr/bin/cp /opt/calico/calico-ipam /opt/cni/bin/calico-ipam
+        ExecStartPre=/usr/bin/cp /opt/calico/loopback /opt/cni/bin/loopback
         ExecStart=/opt/bin/kubelet \
         --port=10250 \
         --address=0.0.0.0 \
@@ -333,11 +320,7 @@ coreos:
         TimeoutStartSec=0
         ExecStartPre=/usr/bin/wget -N -P /opt/bin https://storage.googleapis.com/kubernetes-release/release/__K8S_VER__/bin/linux/amd64/kubectl
         ExecStartPre=/usr/bin/chmod +x /opt/bin/kubectl
-        ExecStartPre=/usr/bin/wget -N -P /opt/bin https://github.com/projectcalico/k8s-policy/releases/download/__CALICO_POLICY_VER__/policy
-        ExecStartPre=/usr/bin/chmod +x /opt/bin/policy
-        ExecStartPre=-/opt/bin/kubectl create -f /home/core/networkpolicy.yaml
-        ExecStartPre=/usr/bin/sleep 5
-        ExecStart=-/opt/bin/policy create -f /home/core/nginx-policy.yaml
+        ExecStart=-/opt/bin/kubectl create -f /home/core/nginx-policy.yaml
 
         [Install]
         WantedBy=multi-user.target
